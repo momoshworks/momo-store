@@ -216,9 +216,12 @@
               <h2 style="font-size: 1.8rem; font-weight: 800;">لوحة تحكم MOMO store</h2>
               <p style="color: var(--text-muted); font-size: 0.9rem;">نشر التطبيقات الجديدة، رفع ملفات الـ APK، وتحديث الإصدارات</p>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
               <button class="btn-primary" onclick="adminPanel.openCreateModal()">
                 <span>➕</span> نشر تطبيق جديد
+              </button>
+              <button class="btn-secondary" onclick="adminPanel.exportCatalogFile()" title="تنزيل ملف الفهرس المحدث لنشره على GitHub">
+                <span>📥</span> تصدير catalog.json
               </button>
               <button class="btn-secondary" onclick="adminPanel.logout()">
                 <span>🚪</span> تسجيل خروج

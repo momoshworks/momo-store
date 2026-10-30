@@ -1,14 +1,35 @@
 /**
- * MOMO store - Admin Dashboard Logic
+ * MOMO store - Smart Admin Dashboard Logic
+ * Supports both Full-Stack FastAPI Server mode AND Static GitHub Pages Serverless mode!
  */
 
 const adminPanel = {
   token: localStorage.getItem('momo_admin_token') || null,
+  isServerMode: false,
+  localApps: [],
   uploadedApkData: null,
 
-  checkAuthStatus() {
+  async checkServerConnection() {
+    try {
+      const res = await fetch('./api/stats', { method: 'GET' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'success') {
+          this.isServerMode = true;
+          return true;
+        }
+      }
+    } catch (e) {}
+    this.isServerMode = false;
+    return false;
+  },
+
+  async checkAuthStatus() {
+    await this.checkServerConnection();
     const loginCard = document.getElementById('admin-login-card');
     const dashboardView = document.getElementById('admin-dashboard-view');
+
+    this.updateServerStatusBadge();
 
     if (this.token) {
       if (loginCard) loginCard.style.display = 'none';
@@ -20,30 +41,81 @@ const adminPanel = {
     }
   },
 
+  updateServerStatusBadge() {
+    let badge = document.getElementById('server-mode-indicator');
+    if (!badge) {
+      badge = document.createElement('div');
+      badge.id = 'server-mode-indicator';
+      const container = document.querySelector('.admin-container');
+      if (container) container.insertBefore(badge, container.firstChild);
+    }
+
+    if (this.isServerMode) {
+      badge.innerHTML = `
+        <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.2rem;">🟢</span>
+            <strong style="color: var(--accent-emerald);">متصل بالخادم المحلي (Full-Stack Mode)</strong>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">- يتم الحفظ في قاعدة بيانات SQLite مباشرة.</span>
+          </div>
+        </div>
+      `;
+    } else {
+      badge.innerHTML = `
+        <div style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 12px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.2rem;">🌐</span>
+            <strong style="color: var(--accent-purple);">الوضع السحابي المباشر (GitHub Pages Serverless)</strong>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">- تعمل لوحة التحكم سحابياً بدون سيرفر مدفوع مع دعم تحديث ملف catalog.json.</span>
+          </div>
+          <div>
+            <a href="http://localhost:8000" target="_blank" class="btn-secondary" style="padding: 6px 12px; font-size: 0.82rem;">
+              <span>🖥️</span> فتح السيرفر المحلي (localhost:8000)
+            </a>
+          </div>
+        </div>
+      `;
+    }
+  },
+
   async login(e) {
     e.preventDefault();
     const username = document.getElementById('admin-user-input').value.trim();
     const password = document.getElementById('admin-pass-input').value.trim();
 
-    try {
-      const res = await fetch('./api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
+    // 1. Try server login if API is reachable
+    if (this.isServerMode) {
+      try {
+        const res = await fetch('./api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        this.token = data.token;
-        localStorage.setItem('momo_admin_token', this.token);
-        appStore.showToast('تم تسجيل الدخول إلى MOMO store بنجاح!', 'success');
-        this.checkAuthStatus();
-      } else {
-        appStore.showToast(data.detail || 'بيانات الدخول غير صحيحة', 'error');
+        const data = await res.json();
+        if (res.ok && data.success) {
+          this.token = data.token;
+          localStorage.setItem('momo_admin_token', this.token);
+          appStore.showToast('تم تسجيل الدخول إلى خادم MOMO store بنجاح!', 'success');
+          this.checkAuthStatus();
+          return;
+        } else {
+          appStore.showToast(data.detail || 'بيانات الدخول غير صحيحة', 'error');
+          return;
+        }
+      } catch (err) {
+        console.warn('Server login failed, trying fallback...', err);
       }
-    } catch (err) {
-      console.error(err);
-      appStore.showToast('تعذر الاتصال بخادم MOMO store', 'error');
+    }
+
+    // 2. Client-Side Serverless Login (for GitHub Pages / Static Hosting)
+    if (username === 'admin' && password === 'admin123') {
+      this.token = 'momo_session_' + Date.now();
+      localStorage.setItem('momo_admin_token', this.token);
+      appStore.showToast('تم تسجيل الدخول بنجاح في وضع إدارة المتجر!', 'success');
+      this.checkAuthStatus();
+    } else {
+      appStore.showToast('اسم المستخدم أو كلمة المرور غير صحيحة (الافتراضي: admin / admin123)', 'error');
     }
   },
 
@@ -67,59 +139,96 @@ const adminPanel = {
 
   async loadStats() {
     try {
-      const res = await fetch('./api/stats');
-      const data = await res.json();
-      if (data.status === 'success') {
-        const s = data.stats;
-        document.getElementById('stat-total-apps').textContent = s.total_apps;
-        document.getElementById('stat-total-downloads').textContent = s.total_downloads.toLocaleString('ar-EG');
-        document.getElementById('stat-avg-rating').textContent = s.average_rating.toFixed(1);
-        document.getElementById('stat-categories-count').textContent = s.categories.length;
+      if (this.isServerMode) {
+        const res = await fetch('./api/stats');
+        const data = await res.json();
+        if (data.status === 'success') {
+          const s = data.stats;
+          document.getElementById('stat-total-apps').textContent = s.total_apps;
+          document.getElementById('stat-total-downloads').textContent = s.total_downloads.toLocaleString('ar-EG');
+          document.getElementById('stat-avg-rating').textContent = s.average_rating.toFixed(1);
+          document.getElementById('stat-categories-count').textContent = s.categories.length;
+          return;
+        }
       }
-    } catch (err) {
-      console.error('Failed to load stats:', err);
+    } catch (e) {}
+
+    // Serverless fallback calculation
+    const apps = this.getAppsList();
+    const totalApps = apps.length;
+    const totalDownloads = apps.reduce((sum, a) => sum + (a.downloads_count || 0), 0);
+    const avgRating = totalApps ? (apps.reduce((sum, a) => sum + (a.rating || 5), 0) / totalApps).toFixed(1) : '5.0';
+    const categories = new Set(apps.map((a) => a.category));
+
+    document.getElementById('stat-total-apps').textContent = totalApps;
+    document.getElementById('stat-total-downloads').textContent = totalDownloads.toLocaleString('ar-EG');
+    document.getElementById('stat-avg-rating').textContent = avgRating;
+    document.getElementById('stat-categories-count').textContent = categories.size;
+  },
+
+  getAppsList() {
+    const stored = localStorage.getItem('momo_custom_catalog');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {}
     }
+    return appStore.allCatalogApps.length ? appStore.allCatalogApps : appStore.apps;
+  },
+
+  saveAppsList(apps) {
+    this.localApps = apps;
+    localStorage.setItem('momo_custom_catalog', JSON.stringify(apps));
+    appStore.allCatalogApps = apps;
+    appStore.apps = apps;
+    appStore.renderApps(apps);
+    appStore.populateCheckerDropdown();
   },
 
   async loadAdminApps() {
-    try {
-      const res = await fetch('./api/apps?sort_by=newest');
-      const data = await res.json();
-      if (data.status !== 'success') return;
-
-      const tbody = document.getElementById('admin-apps-tbody');
-      tbody.innerHTML = data.apps.map((app) => `
-        <tr>
-          <td>
-            <div style="display: flex; align-items: center; gap: 10px;">
-              <img src="${app.icon_url}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover;" onerror="this.src='./static/icons/default-app.svg'">
-              <div>
-                <strong style="color: var(--text-main);">${app.name}</strong>
-                ${app.featured ? '<span class="tag-featured" style="margin-right: 6px;">مميز</span>' : ''}
-              </div>
-            </div>
-          </td>
-          <td><code style="font-size: 0.8rem; color: var(--accent-purple);">${app.package_name}</code></td>
-          <td><span class="tag-category">${app.category}</span></td>
-          <td>v${app.version_name} <span style="color: var(--text-dim);">(${app.version_code})</span></td>
-          <td>${app.file_size_formatted}</td>
-          <td>${app.downloads_count.toLocaleString('ar-EG')}</td>
-          <td><span style="color: #f59e0b; font-weight: 800;">★ ${app.rating.toFixed(1)}</span></td>
-          <td>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.8rem;" onclick="adminPanel.openEditModal('${app.id}')">
-                <span>✏️</span> تعديل
-              </button>
-              <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.8rem; border-color: rgba(239,68,68,0.3); color: #ef4444;" onclick="adminPanel.deleteApp('${app.id}', '${app.name}')">
-                <span>🗑️</span> حذف
-              </button>
-            </div>
-          </td>
-        </tr>
-      `).join('');
-    } catch (err) {
-      console.error('Failed to load admin apps:', err);
+    let apps = [];
+    if (this.isServerMode) {
+      try {
+        const res = await fetch('./api/apps?sort_by=newest');
+        const data = await res.json();
+        if (data.status === 'success') apps = data.apps;
+      } catch (e) {}
     }
+
+    if (!apps.length) {
+      apps = this.getAppsList();
+    }
+
+    const tbody = document.getElementById('admin-apps-tbody');
+    tbody.innerHTML = apps.map((app) => `
+      <tr>
+        <td>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <img src="${app.icon_url}" style="width: 38px; height: 38px; border-radius: 8px; object-fit: cover;" onerror="this.src='./static/icons/default-app.svg'">
+            <div>
+              <strong style="color: var(--text-main);">${app.name}</strong>
+              ${app.featured ? '<span class="tag-featured" style="margin-right: 6px;">مميز</span>' : ''}
+            </div>
+          </div>
+        </td>
+        <td><code style="font-size: 0.8rem; color: var(--accent-purple);">${app.package_name}</code></td>
+        <td><span class="tag-category">${app.category}</span></td>
+        <td>v${app.version_name} <span style="color: var(--text-dim);">(${app.version_code})</span></td>
+        <td>${app.file_size_formatted}</td>
+        <td>${app.downloads_count.toLocaleString('ar-EG')}</td>
+        <td><span style="color: #f59e0b; font-weight: 800;">★ ${app.rating.toFixed(1)}</span></td>
+        <td>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.8rem;" onclick="adminPanel.openEditModal('${app.id}')">
+              <span>✏️</span> تعديل
+            </button>
+            <button class="btn-secondary" style="padding: 6px 10px; font-size: 0.8rem; border-color: rgba(239,68,68,0.3); color: #ef4444;" onclick="adminPanel.deleteApp('${app.id}', '${app.name}')">
+              <span>🗑️</span> حذف
+            </button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
   },
 
   toggleUploadMode(mode) {
@@ -139,6 +248,12 @@ const adminPanel = {
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
     const statusText = document.getElementById('apk-upload-status');
+
+    if (!this.isServerMode) {
+      statusText.innerHTML = `⚠️ رفع الملفات المباشر من الكمبيوتر يتطلب فتح السيرفر المحلي: <a href="http://localhost:8000" target="_blank" style="color: var(--accent-purple);">http://localhost:8000</a>.<br>في وضع GitHub Pages، يفضل استخدام خيار <strong>رابط مباشر أو GitHub Releases</strong>.`;
+      return;
+    }
+
     statusText.textContent = `⏳ جارٍ رفع وتحليل ملف APK (${file.name})...`;
 
     const formData = new FormData();
@@ -187,11 +302,21 @@ const adminPanel = {
 
   async openEditModal(appId) {
     try {
-      const res = await fetch(`./api/apps/${appId}`);
-      const data = await res.json();
-      if (data.status !== 'success') return;
+      let app = null;
+      if (this.isServerMode) {
+        try {
+          const res = await fetch(`./api/apps/${appId}`);
+          const data = await res.json();
+          if (data.status === 'success') app = data.app;
+        } catch (e) {}
+      }
 
-      const app = data.app;
+      if (!app) {
+        app = this.getAppsList().find((a) => a.id === appId);
+      }
+
+      if (!app) return;
+
       document.getElementById('admin-modal-title').textContent = `تعديل التطبيق: ${app.name}`;
       document.getElementById('form-is-edit').value = 'true';
 
@@ -242,7 +367,7 @@ const adminPanel = {
     const versionName = document.getElementById('form-version-name').value.trim();
     const versionCode = parseInt(document.getElementById('form-version-code').value, 10);
     const downloadUrl = document.getElementById('form-download-url').value.trim();
-    const sha256 = document.getElementById('form-sha256').value.trim() || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+    const sha256 = document.getElementById('form-sha256').value.trim() || '0d3852dc6fbfae4517e60e66fbd67983cdaf8bc784a75578fd96945250d7349b';
     const sizeFormatted = document.getElementById('form-size-formatted').value.trim() || '10 MB';
     const changelog = document.getElementById('form-changelog').value.trim() || 'إطلاق التحديث الجديد';
     const iconUrl = document.getElementById('form-icon-url').value.trim() || './static/icons/default-app.svg';
@@ -272,38 +397,59 @@ const adminPanel = {
       screenshots,
       featured,
       storage_type: storageType,
+      downloads_count: 100,
+      rating: 5.0,
+      rating_count: 10,
     };
 
-    try {
-      let res;
-      if (isEdit) {
-        res = await fetch(`./api/admin/apps/${appId}`, {
-          method: 'PUT',
-          headers: this.getHeaders(),
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch('./api/admin/apps', {
-          method: 'POST',
-          headers: this.getHeaders(),
-          body: JSON.stringify(payload),
-        });
-      }
+    // If server mode
+    if (this.isServerMode) {
+      try {
+        let res;
+        if (isEdit) {
+          res = await fetch(`./api/admin/apps/${appId}`, {
+            method: 'PUT',
+            headers: this.getHeaders(),
+            body: JSON.stringify(payload),
+          });
+        } else {
+          res = await fetch('./api/admin/apps', {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(payload),
+          });
+        }
 
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        appStore.showToast(data.message, 'success');
-        this.closeAppModal();
-        this.loadDashboardData();
-        appStore.fetchApps();
-        appStore.populateCheckerDropdown();
-      } else {
-        appStore.showToast(data.detail || 'حدث خطأ أثناء الحفظ', 'error');
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+          appStore.showToast(data.message, 'success');
+          this.closeAppModal();
+          this.loadDashboardData();
+          appStore.fetchApps();
+          appStore.populateCheckerDropdown();
+          return;
+        } else {
+          appStore.showToast(data.detail || 'حدث خطأ أثناء الحفظ', 'error');
+          return;
+        }
+      } catch (err) {
+        console.warn('Server save failed, saving to local catalog...', err);
       }
-    } catch (err) {
-      console.error(err);
-      appStore.showToast('تعذر حفظ بيانات التطبيق', 'error');
     }
+
+    // Serverless mode save
+    let list = [...this.getAppsList()];
+    if (isEdit) {
+      const idx = list.findIndex((a) => a.id === appId);
+      if (idx !== -1) list[idx] = { ...list[idx], ...payload };
+    } else {
+      list.push(payload);
+    }
+
+    this.saveAppsList(list);
+    appStore.showToast('تم نشر وتحديث التطبيق في المتجر بنجاح!', 'success');
+    this.closeAppModal();
+    this.loadDashboardData();
   },
 
   async deleteApp(appId, appName) {
@@ -311,23 +457,48 @@ const adminPanel = {
       return;
     }
 
-    try {
-      const res = await fetch(`./api/admin/apps/${appId}`, {
-        method: 'DELETE',
-        headers: this.getHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        appStore.showToast(`تم حذف تطبيق "${appName}" بنجاح`, 'success');
-        this.loadDashboardData();
-        appStore.fetchApps();
-        appStore.populateCheckerDropdown();
-      } else {
-        appStore.showToast(data.detail || 'فشل حذف التطبيق', 'error');
-      }
-    } catch (err) {
-      console.error(err);
-      appStore.showToast('تعذر حذف التطبيق', 'error');
+    if (this.isServerMode) {
+      try {
+        const res = await fetch(`./api/admin/apps/${appId}`, {
+          method: 'DELETE',
+          headers: this.getHeaders(),
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+          appStore.showToast(`تم حذف تطبيق "${appName}" بنجاح`, 'success');
+          this.loadDashboardData();
+          appStore.fetchApps();
+          appStore.populateCheckerDropdown();
+          return;
+        }
+      } catch (e) {}
     }
+
+    // Serverless mode delete
+    let list = this.getAppsList().filter((a) => a.id !== appId);
+    this.saveAppsList(list);
+    appStore.showToast(`تم حذف تطبيق "${appName}" من المتجر`, 'info');
+    this.loadDashboardData();
+  },
+
+  exportCatalogFile() {
+    const apps = this.getAppsList();
+    const catalogData = {
+      catalog_version: '1.0.0',
+      generated_at: new Date().toISOString(),
+      apps_count: apps.length,
+      apps: apps,
+    };
+
+    const blob = new Blob([JSON.stringify(catalogData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'catalog.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    appStore.showToast('تم تحميل ملف catalog.json المحدث بنجاح!', 'success');
   },
 };
