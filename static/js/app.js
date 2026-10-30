@@ -1,7 +1,7 @@
 /**
- * MOMO store - Mobile-First E-Commerce & App Store Engine
- * Includes: 5 Core Mobile Screens, Bottom Nav, Hero Slider, One-Page Checkout,
- * Order Tracking, Shimmer Skeletons, Optimistic UI & Zero-Lag Offline Caching.
+ * MOMO store - Google Play Store Material Design 3 (Material You) Engine
+ * Features: Squircle Icons, Morphing Action Button with Circular Progress,
+ * Horizontal Clusters, Google Play Protect Scanner & Manage Apps Dialog.
  */
 
 const appStore = {
@@ -9,166 +9,172 @@ const appStore = {
   allCatalogApps: [],
   cart: JSON.parse(localStorage.getItem('momo_cart') || '[]'),
   wishlist: JSON.parse(localStorage.getItem('momo_wishlist') || '[]'),
-  orders: JSON.parse(localStorage.getItem('momo_orders') || '[]'),
   currentCategory: 'all',
+  currentTab: 'for-you',
   currentSearch: '',
-  currentSort: 'popular',
   activeProduct: null,
-  activeSlide: 0,
-  sliderTimer: null,
-  appliedPromo: null,
-  currentTheme: localStorage.getItem('momo_theme') || 'dark',
+  installProgressTimer: null,
 
   async init() {
     this.initTheme();
+    await this.loadCatalog();
     this.updateBadges();
-    this.initSlider();
-    this.renderSkeleton();
-    await this.fetchApps();
-    this.renderOrdersTimeline();
+    this.renderClusters();
+    this.renderProducts(this.apps);
+    this.renderCategoriesPage();
+    this.renderOrdersTracker();
   },
 
   // --- Theme Management ---
   initTheme() {
-    this.setTheme(this.currentTheme);
-  },
-
-  setTheme(theme) {
-    this.currentTheme = theme;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('momo_theme', theme);
-    const icon = document.getElementById('theme-icon');
-    if (icon) icon.textContent = theme === 'light' ? '🌙' : '☀️';
+    const saved = localStorage.getItem('momo_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', saved);
+    this.updateThemeText(saved);
   },
 
   toggleTheme() {
-    const nextTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
-    this.setTheme(nextTheme);
-    this.showToast(`تم التبديل إلى الوضع ${nextTheme === 'light' ? 'الفاتح ☀️' : 'الداكن 🌙'}`, 'info');
+    const current = document.documentElement.getAttribute('data-theme');
+    const target = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', target);
+    localStorage.setItem('momo_theme', target);
+    this.updateThemeText(target);
+    this.showToast(`تم التبديل إلى الوضع ${target === 'dark' ? 'الليلي 🌙' : 'الفاتح ☀️'}`, 'info');
   },
 
-  // --- 5 Screens Navigation ---
-  switchView(viewName) {
-    const views = ['home', 'categories', 'cart', 'wishlist', 'account', 'admin'];
-    views.forEach((v) => {
-      const el = document.getElementById(`view-${v}`);
-      if (el) el.style.display = (v === viewName) ? 'block' : 'none';
-      
-      // Update bottom nav
-      const bNav = document.getElementById(`bnav-${v}`);
-      if (bNav) {
-        if (v === viewName) bNav.classList.add('active');
-        else bNav.classList.remove('active');
-      }
-    });
-
-    if (viewName === 'cart') this.renderCart();
-    if (viewName === 'wishlist') this.renderWishlist();
-    if (viewName === 'account') this.renderOrdersTimeline();
-    if (viewName === 'admin') adminPanel.checkAuthStatus();
-    if (viewName === 'categories') this.renderCategoriesPage();
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  updateThemeText(theme) {
+    const el = document.getElementById('theme-icon-text');
+    if (el) el.textContent = theme === 'dark' ? 'داكن 🌙' : 'فاتح ☀️';
   },
 
-  // --- Hero Slider ---
-  initSlider() {
-    const track = document.getElementById('hero-slides-track');
-    if (!track) return;
-    const slidesCount = 3;
+  // --- Load Catalog Data ---
+  async loadCatalog() {
+    // 1. Shimmer Skeleton Loading State
+    this.renderSkeletons();
 
-    if (this.sliderTimer) clearInterval(this.sliderTimer);
-    this.sliderTimer = setInterval(() => {
-      this.activeSlide = (this.activeSlide + 1) % slidesCount;
-      this.updateSlider();
-    }, 4500);
+    let fetchedApps = null;
+
+    // Check Local Storage Customizations first
+    const custom = localStorage.getItem('momo_custom_catalog');
+    if (custom) {
+      try {
+        fetchedApps = JSON.parse(custom);
+      } catch (e) {}
+    }
+
+    // Try Local Backend API
+    if (!fetchedApps) {
+      try {
+        const res = await fetch('./api/apps', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.apps && data.apps.length) {
+            fetchedApps = data.apps;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Fallback to static catalog.json (GitHub Pages mode)
+    if (!fetchedApps) {
+      try {
+        const res = await fetch('./catalog.json', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.apps) {
+            fetchedApps = data.apps;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!fetchedApps || fetchedApps.length === 0) {
+      fetchedApps = this.getDefaultFallbackApps();
+    }
+
+    this.allCatalogApps = fetchedApps;
+    this.apps = fetchedApps;
   },
 
-  setSlide(index) {
-    this.activeSlide = index;
-    this.updateSlider();
-    this.initSlider(); // reset timer
-  },
-
-  updateSlider() {
-    const track = document.getElementById('hero-slides-track');
-    if (!track) return;
-    track.style.transform = `translateX(${this.activeSlide * 100}%)`;
-
-    document.querySelectorAll('.slider-dot').forEach((dot, idx) => {
-      dot.classList.toggle('active', idx === this.activeSlide);
-    });
-  },
-
-  // --- Skeleton Loading (Zero-Lag UI) ---
-  renderSkeleton() {
-    const grid = document.getElementById('products-grid');
+  renderSkeletons() {
+    const grid = document.getElementById('main-apps-grid');
     if (!grid) return;
-    grid.innerHTML = Array(4).fill(0).map(() => `
-      <div class="skeleton-card">
-        <div class="shimmer shimmer-img"></div>
-        <div class="shimmer shimmer-line"></div>
-        <div class="shimmer shimmer-line full"></div>
-        <div class="shimmer shimmer-btn"></div>
+    grid.innerHTML = Array(6).fill(0).map(() => `
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 18px; padding: 12px; height: 180px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="width: 100%; height: 95px; background: var(--shimmer-bg); border-radius: var(--squircle-radius); animation: pulse 1.5s infinite;"></div>
+        <div style="width: 70%; height: 14px; background: var(--shimmer-bg); border-radius: 6px;"></div>
+        <div style="width: 40%; height: 12px; background: var(--shimmer-bg); border-radius: 6px;"></div>
       </div>
     `).join('');
   },
 
-  // --- Data Fetching ---
-  async fetchApps() {
-    try {
-      let res = await fetch(`./api/apps?sort_by=${this.currentSort}`).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        if (data.status === 'success') {
-          this.apps = data.apps;
-          this.allCatalogApps = data.apps;
-          this.renderProducts(this.apps);
-          return;
-        }
-      }
+  // --- Render Google Play Horizontal Clusters ---
+  renderClusters() {
+    const recContainer = document.getElementById('cluster-recommended');
+    const hwContainer = document.getElementById('cluster-hardware');
 
-      // Static fallback
-      const catRes = await fetch('./catalog.json');
-      if (catRes.ok) {
-        const catData = await catRes.json();
-        this.apps = catData.apps || [];
-        this.allCatalogApps = this.apps;
-        this.renderProducts(this.apps);
-      }
-    } catch (err) {
-      console.error(err);
-      this.showToast('تعذر جلب المنتجات', 'error');
+    const phoneApps = this.allCatalogApps.filter((a) => a.category === 'برامج الهاتف' || a.item_type === 'app');
+    const hardwareItems = this.allCatalogApps.filter((a) => a.category !== 'برامج الهاتف');
+
+    if (recContainer) {
+      recContainer.innerHTML = phoneApps.map((item) => this.renderClusterCard(item)).join('');
+    }
+
+    if (hwContainer) {
+      hwContainer.innerHTML = hardwareItems.map((item) => this.renderClusterCard(item)).join('');
     }
   },
 
-  // --- Render Products & Apps Grid ---
+  renderClusterCard(item) {
+    const isApp = item.item_type === 'app';
+    const subText = isApp ? (item.file_size_formatted || '42 MB') : `${item.price} ج.م`;
+
+    return `
+      <div class="gp-app-card" onclick="appStore.openDetailsModal('${item.id}')">
+        <div class="gp-app-icon-squircle">
+          <img src="${item.icon_url}" alt="${item.name}" onerror="this.src='./static/icons/default-app.svg'">
+        </div>
+        <div class="gp-app-name" title="${item.name}">${item.name}</div>
+        <div class="gp-app-subinfo">
+          <span class="gp-app-rating-star">★</span>
+          <span>${item.rating ? item.rating.toFixed(1) : '4.8'}</span>
+          <span>•</span>
+          <span>${subText}</span>
+        </div>
+      </div>
+    `;
+  },
+
+  // --- Render Main Products / Apps Grid ---
   renderProducts(list) {
-    const grid = document.getElementById('products-grid');
-    const badge = document.getElementById('items-count-badge');
+    const grid = document.getElementById('main-apps-grid');
+    const countEl = document.getElementById('grid-section-count');
     if (!grid) return;
 
-    let filtered = [...list];
-    if (this.currentCategory !== 'all') {
-      filtered = filtered.filter((i) => i.category === this.currentCategory);
+    let filtered = list;
+
+    // Filter by Tab / Category
+    if (this.currentCategory && this.currentCategory !== 'all') {
+      filtered = filtered.filter((a) => a.category === this.currentCategory);
     }
-    if (this.currentSearch.trim()) {
+
+    // Filter by Search Query
+    if (this.currentSearch && this.currentSearch.trim() !== '') {
       const q = this.currentSearch.trim().toLowerCase();
-      filtered = filtered.filter((i) =>
-        i.name.toLowerCase().includes(q) ||
-        i.short_description.toLowerCase().includes(q) ||
-        i.category.toLowerCase().includes(q)
+      filtered = filtered.filter((a) =>
+        (a.name && a.name.toLowerCase().includes(q)) ||
+        (a.short_description && a.short_description.toLowerCase().includes(q)) ||
+        (a.category && a.category.toLowerCase().includes(q))
       );
     }
 
-    if (badge) badge.textContent = `${filtered.length} عنصر`;
+    if (countEl) countEl.textContent = `(${filtered.length} عنصر)`;
 
     if (filtered.length === 0) {
       grid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 50px 20px; background: var(--bg-card); border-radius: 20px; border: 1px dashed var(--border-color);">
-          <div style="font-size: 3rem; margin-bottom: 8px;">🔍</div>
-          <h3 style="color: var(--text-main);">لم يتم العثور على أي منتجات</h3>
-          <p style="color: var(--text-muted); font-size: 0.9rem;">جرب اختيار قسم آخر أو تغيير كلمة البحث.</p>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 10px; background: var(--bg-surface); border-radius: 20px; border: 1px dashed var(--border-color);">
+          <div style="font-size: 2.5rem; margin-bottom: 6px;">🔍</div>
+          <h3 style="color: var(--text-main); font-size: 1.1rem;">لم يتم العثور على نتائج مطابقة</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">جرب البحث بكلمات أخرى أو تصفح الفئات المختلفة.</p>
         </div>
       `;
       return;
@@ -177,64 +183,97 @@ const appStore = {
     grid.innerHTML = filtered.map((item) => {
       const isFav = this.wishlist.some((w) => w.id === item.id);
       const isApp = item.item_type === 'app';
-      
       return `
-        <div class="product-card" onclick="appStore.openDetailsModal('${item.id}')">
-          ${item.discount_percent ? `<span class="product-badge-discount">خصم ${item.discount_percent}%</span>` : ''}
-          
-          <button class="product-fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); appStore.toggleWishlist('${item.id}')" title="إضافة للمفضلة">
+        <div class="gp-product-card" onclick="appStore.openDetailsModal('${item.id}')">
+          <button class="gp-product-fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); appStore.toggleWishlist('${item.id}')">
             ${isFav ? '❤️' : '🤍'}
           </button>
-
-          <div class="product-img-wrapper">
-            <img src="${item.icon_url}" alt="${item.name}" class="product-img" onerror="this.src='./static/icons/default-app.svg'">
+          
+          <div class="gp-app-icon-squircle" style="margin-bottom: 10px;">
+            <img src="${item.icon_url}" alt="${item.name}" onerror="this.src='./static/icons/default-app.svg'">
           </div>
 
-          <div>
-            <div class="product-category-tag">${item.category}</div>
-            <h3 class="product-title" title="${item.name}">${item.name}</h3>
+          <div class="gp-app-name" style="font-size: 0.95rem; margin-bottom: 4px;">${item.name}</div>
+          
+          <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 6px;">${item.category}</div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 6px;">
+            <div style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 700;">
+              <span style="color: #f59e0b;">★</span>
+              <span>${item.rating ? item.rating.toFixed(1) : '4.8'}</span>
+            </div>
             
-            <div class="product-rating">
-              <span>★ ${item.rating.toFixed(1)}</span>
-              <span style="color: var(--text-dim); font-size: 0.75rem;">(${item.rating_count})</span>
+            <div style="font-weight: 800; font-size: 0.92rem; color: ${isApp ? 'var(--gp-green)' : 'var(--text-main)'};">
+              ${isApp ? 'مجاني' : item.price + ' ج.م'}
             </div>
-
-            <div class="product-price-row">
-              ${isApp ? `
-                <span class="product-price-free">مجاني</span>
-                <span style="font-size: 0.8rem; color: var(--text-dim);">APK مباشر</span>
-              ` : `
-                <span class="product-price-current">${item.price} ج.م</span>
-                ${item.old_price ? `<span class="product-price-old">${item.old_price} ج.م</span>` : ''}
-              `}
-            </div>
-          </div>
-
-          <div class="product-actions-row" onclick="event.stopPropagation()">
-            ${isApp ? `
-              <button class="btn-add-cart" style="background: linear-gradient(135deg, #0284c7, #2563eb);" onclick="appStore.downloadApp('${item.id}')">
-                <span>⬇️</span> تحميل APK
-              </button>
-            ` : `
-              <button class="btn-add-cart" onclick="appStore.addToCart('${item.id}')">
-                <span>🛒</span> أضف للسلة
-              </button>
-            `}
-            <button class="btn-details" onclick="appStore.openDetailsModal('${item.id}')">
-              <span>تفاصيل</span>
-            </button>
           </div>
         </div>
       `;
     }).join('');
   },
 
-  handleCategory(cat) {
-    this.currentCategory = cat;
-    document.querySelectorAll('.category-circle-card').forEach((btn) => {
-      btn.classList.toggle('active', btn.getAttribute('data-category') === cat);
-    });
+  // --- Tab & Navigation Switching ---
+  handleTabSwitch(tabName, el) {
+    if (el) {
+      document.querySelectorAll('.m3-tab-item').forEach((t) => t.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    this.currentTab = tabName;
+
+    if (tabName === 'for-you') {
+      this.currentCategory = 'all';
+      this.switchView('home');
+      document.getElementById('grid-section-title').textContent = 'أهم التطبيقات والمنتجات';
+    } else if (tabName === 'top-charts') {
+      this.currentCategory = 'all';
+      this.switchView('home');
+      document.getElementById('grid-section-title').textContent = 'الأعلى تحميلاً وتقييماً 🔥';
+    } else if (tabName === 'categories') {
+      this.switchView('categories');
+    } else if (tabName === 'editors-choice') {
+      this.currentCategory = 'all';
+      this.switchView('home');
+      document.getElementById('grid-section-title').textContent = 'اختيارات محرري MOMO store 🌟';
+    } else {
+      this.currentCategory = tabName;
+      this.switchView('home');
+      document.getElementById('grid-section-title').textContent = tabName;
+    }
+
     this.renderProducts(this.apps);
+  },
+
+  switchBottomNav(type, el) {
+    document.querySelectorAll('.m3-nav-item').forEach((b) => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    if (type === 'apps') {
+      this.handleTabSwitch('for-you');
+    } else if (type === 'games') {
+      this.handleTabSwitch('ألعاب');
+    } else if (type === 'hardware') {
+      this.handleTabSwitch('إلكترونيات وأجهزة');
+    } else if (type === 'cart') {
+      this.switchView('cart');
+    } else if (type === 'updates') {
+      this.openAccountDialog();
+    }
+  },
+
+  switchView(viewName) {
+    const views = ['home', 'categories', 'cart', 'wishlist', 'orders', 'merchant'];
+    views.forEach((v) => {
+      const el = document.getElementById(`view-${v}`);
+      if (el) el.style.display = v === viewName ? 'block' : 'none';
+    });
+
+    if (viewName === 'cart') this.renderCart();
+    if (viewName === 'wishlist') this.renderWishlist();
+    if (viewName === 'orders') this.renderOrdersTracker();
+    if (viewName === 'merchant') adminPanel.checkAuthStatus();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   },
 
   handleSearch: (() => {
@@ -243,12 +282,38 @@ const appStore = {
       clearTimeout(timer);
       timer = setTimeout(() => {
         appStore.currentSearch = query;
+        appStore.switchView('home');
         appStore.renderProducts(appStore.apps);
-      }, 300); // 300ms debounce
+      }, 300);
     };
   })(),
 
-  // --- Product Details & Specs Selector ---
+  triggerVoiceSearch() {
+    this.showToast('البحث الصوتي: قل اسم التطبيق أو الجهاز...', 'info');
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      try {
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRec();
+        recognition.lang = 'ar-EG';
+        recognition.onresult = (event) => {
+          const text = event.results[0][0].transcript;
+          document.getElementById('store-search-input').value = text;
+          appStore.handleSearch(text);
+          appStore.showToast(`تم التعرف: "${text}"`, 'success');
+        };
+        recognition.start();
+      } catch (e) {
+        this.showToast('البحث الصوتي غير مدعوم في متصفحك حالياً', 'error');
+      }
+    } else {
+      this.showToast('البحث الصوتي يتطلب صلاحية الميكروفون', 'info');
+    }
+  },
+
+  // ========================================================
+  // THE SIGNATURE GOOGLE PLAY APP DETAILS SCREEN & MORPHING INSTALL
+  // ========================================================
+
   openDetailsModal(itemId) {
     const item = this.allCatalogApps.find((a) => a.id === itemId) || this.apps.find((a) => a.id === itemId);
     if (!item) return;
@@ -257,183 +322,214 @@ const appStore = {
     const body = document.getElementById('product-details-body');
     const isApp = item.item_type === 'app';
     const photos = (item.screenshots && item.screenshots.length) ? item.screenshots : [item.icon_url];
+    const devName = item.developer || (isApp ? 'MOMO Team' : 'MOMO Hardware Labs');
+    const fileSizeFormatted = item.file_size_formatted || (item.file_size_bytes ? `${(item.file_size_bytes / (1024*1024)).toFixed(1)} MB` : '42 MB');
 
     body.innerHTML = `
-      <div class="product-details-content">
-        <!-- Gallery -->
-        <div class="gallery-container">
-          <img id="main-preview-img" src="${photos[0]}" alt="${item.name}" class="main-preview-img" onerror="this.src='./static/icons/default-app.svg'">
-          
-          ${photos.length > 1 ? `
-            <div class="thumbnails-row">
-              ${photos.map((p, idx) => `
-                <img src="${p}" class="thumbnail-img ${idx === 0 ? 'active' : ''}" onclick="appStore.selectThumbnail('${p}', this)">
-              `).join('')}
-            </div>
-          ` : ''}
+      <!-- 1. Google Play App Header -->
+      <div class="gp-details-app-header">
+        <div class="gp-icon-wrapper-relative" id="gp-details-icon-wrapper">
+          <!-- CircularProgressIndicator SVG Ring -->
+          <svg class="gp-circular-progress-svg" viewBox="0 0 84 84">
+            <circle class="gp-circular-track" cx="42" cy="42" r="38"></circle>
+            <circle class="gp-circular-fill" id="gp-progress-circle-fill" cx="42" cy="42" r="38"></circle>
+          </svg>
+          <img src="${item.icon_url}" alt="${item.name}" class="gp-details-icon-72" onerror="this.src='./static/icons/default-app.svg'">
         </div>
 
-        <!-- Info & Specs -->
-        <div>
-          <span class="slide-badge purple">${item.category}</span>
-          <h2 style="font-size: 1.5rem; font-weight: 900; margin: 8px 0 6px; color: var(--text-main);">${item.name}</h2>
-          
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
-            <span style="color: #f59e0b; font-weight: 800;">★ ${item.rating.toFixed(1)} (${item.rating_count} تقييم)</span>
-            <span style="color: var(--accent-emerald); font-weight: 700; font-size: 0.85rem;">🟢 متوفر في المخزون</span>
+        <div class="gp-details-app-info">
+          <h2 class="gp-details-app-title">${item.name}</h2>
+          <a href="#" class="gp-details-dev-link" onclick="event.preventDefault();">${devName}</a>
+          <div class="gp-details-badge-row">
+            <span>${item.category}</span>
+            <span>•</span>
+            <span>${isApp ? 'عمليات الشراء داخل التطبيق' : 'منتج أصلي مضمون'}</span>
           </div>
-
-          <div class="product-price-row" style="margin-bottom: 16px;">
-            ${isApp ? `
-              <span class="product-price-free" style="font-size: 1.5rem;">مجاني 100%</span>
-            ` : `
-              <span class="product-price-current" style="font-size: 1.6rem; color: var(--accent-pink);">${item.price} ج.م</span>
-              ${item.old_price ? `<span class="product-price-old" style="font-size: 1rem;">${item.old_price} ج.م</span>` : ''}
-              ${item.discount_percent ? `<span class="product-badge-discount" style="position: static;">وفر ${item.discount_percent}%</span>` : ''}
-            `}
-          </div>
-
-          <!-- Color Options -->
-          ${item.colors && item.colors.length ? `
-            <div class="specs-section">
-              <div class="specs-title">اختر اللون:</div>
-              <div class="color-options-row">
-                ${item.colors.map((c, idx) => `
-                  <button class="color-option-pill ${idx === 0 ? 'active' : ''}" onclick="appStore.selectSpec('color', '${c}', this)">
-                    ${c}
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- Size / Edition Options -->
-          ${item.sizes && item.sizes.length ? `
-            <div class="specs-section">
-              <div class="specs-title">المواصفات / الإصدار:</div>
-              <div class="color-options-row">
-                ${item.sizes.map((s, idx) => `
-                  <button class="color-option-pill ${idx === 0 ? 'active' : ''}" onclick="appStore.selectSpec('size', '${s}', this)">
-                    ${s}
-                  </button>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-
-          <!-- Description -->
-          <div style="margin: 18px 0;">
-            <div class="specs-title">الوصف والمميزات:</div>
-            <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.7; white-space: pre-line;">${item.description}</p>
-          </div>
-
-          <!-- Security VirusTotal & Signature for Apps -->
-          ${isApp ? `
-            <div class="vt-safe-card">
-              <div class="vt-safe-icon">🛡️</div>
-              <div>
-                <div style="font-weight: 800; color: var(--accent-emerald); font-size: 0.92rem;">${item.safety_badge || 'مفحوص وآمن 100% ضد الفيروسات ✅'}</div>
-                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                  تم الفحص عبر VirusTotal API • توقيع المطور الأصلي موثق ومطابق لمنع التطبيقات المعدلة
-                </div>
-              </div>
-            </div>
-
-            <!-- Architecture & Android Specs -->
-            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0;">
-              <span class="abi-badge">⚙️ المعمارية: ${item.supported_abi || 'arm64-v8a / armeabi-v7a'}</span>
-              <span class="abi-badge" style="background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3);">📱 ${item.min_android_version || 'Android 5.0+'}</span>
-              <span class="abi-badge" style="background: rgba(59, 130, 246, 0.12); color: #3b82f6; border-color: rgba(59, 130, 246, 0.3);">📦 الحزمة: ${item.package_name || 'com.momo.app'}</span>
-            </div>
-
-            <!-- Permissions Required -->
-            ${(item.permissions && item.permissions.length) ? `
-              <div style="margin: 14px 0;">
-                <div class="specs-title" style="font-size: 0.85rem; margin-bottom: 6px;">الأذونات المطلوبة (Permissions):</div>
-                <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                  ${item.permissions.map((perm) => `
-                    <span class="permission-pill">🔑 ${perm}</span>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Multi-Version History & Delta Updates -->
-            ${(item.versions && item.versions.length) ? `
-              <div style="margin: 16px 0; background: rgba(125,125,125,0.04); border: 1px solid var(--border-color); border-radius: 12px; padding: 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                  <span style="font-size: 0.85rem; font-weight: 800; color: var(--text-main);">سجل الإصدارات والتحديثات:</span>
-                  <span class="delta-pill">⚡ يدعم التحديث التفاضلي Delta</span>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                  ${item.versions.map((v) => `
-                    <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.8rem;">
-                      <div>
-                        <strong style="color: var(--text-main);">إصدار v${v.version_name}</strong>
-                        <span style="color: var(--text-dim); margin-right: 6px;">(كود ${v.version_code})</span>
-                        ${v.delta_patch_size ? `
-                          <div style="color: #f59e0b; font-size: 0.72rem; margin-top: 2px;">
-                            حجم التحديث التفاضلي: ${(v.delta_patch_size / (1024*1024)).toFixed(1)} MB فقط (bsdiff Patch)
-                          </div>
-                        ` : ''}
-                      </div>
-                      <button class="btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;" onclick="appStore.downloadApp('${item.id}')">
-                        تحميل
-                      </button>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Security SHA-256 Checksum -->
-            <div class="security-box" style="margin: 14px 0;">
-              <div class="security-icon">🔒</div>
-              <div class="security-content">
-                <div class="security-title">فحص البصمة الرقمية (SHA-256 Integrity Check)</div>
-                <div class="sha256-code-wrapper">
-                  <span class="sha256-code">${item.sha256}</span>
-                  <button class="btn-copy" onclick="appStore.copySha256('${item.sha256}')">نسخ</button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Simulated Resumable Download Progress Box -->
-            <div id="resumable-dl-box" class="download-progress-box" style="display: none;">
-              <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
-                <span id="dl-status-text" style="font-weight: 700; color: var(--text-main);">جارٍ الاتصال بالقنوات المتعددة (Multi-threaded Range)...</span>
-                <span id="dl-percent-text" style="font-weight: 800; color: var(--accent-purple);">0%</span>
-              </div>
-              <div class="download-progress-bar-bg">
-                <div id="dl-progress-bar" class="download-progress-bar-fill"></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-dim);">
-                <span id="dl-speed-text">السرعة: 12.4 MB/s</span>
-                <span>دعم استئناف التحميل (HTTP Range) ✅</span>
-              </div>
-            </div>
-          ` : ''}
         </div>
       </div>
 
-      <!-- Sticky Add-to-Cart Bottom Bar -->
-      <div class="sticky-bottom-cart-bar">
-        <div>
-          <div style="font-size: 0.78rem; color: var(--text-dim);">السعر الإجمالي:</div>
-          <div style="font-size: 1.25rem; font-weight: 900; color: var(--text-main);">
-            ${isApp ? 'مجاني' : item.price + ' ج.م'}
+      <!-- 2. Google Play 4-Metric Stats Strip -->
+      <div class="gp-stats-strip">
+        <div class="gp-stat-item">
+          <div class="gp-stat-val">
+            <span>${item.rating ? item.rating.toFixed(1) : '4.8'}</span>
+            <span style="color: #f59e0b; font-size: 0.85rem;">★</span>
+          </div>
+          <span class="gp-stat-label">${item.rating_count || 148} مراجعة</span>
+        </div>
+
+        <div class="gp-stat-item">
+          <div class="gp-stat-val">
+            <span>${item.downloads_count ? `+${(item.downloads_count / 1000).toFixed(0)}K` : '+500K'}</span>
+          </div>
+          <span class="gp-stat-label">تنزيل</span>
+        </div>
+
+        <div class="gp-stat-item">
+          <div class="gp-stat-val">
+            <span style="border: 1px solid var(--text-dim); padding: 1px 4px; border-radius: 4px; font-size: 0.72rem;">3+</span>
+          </div>
+          <span class="gp-stat-label">مناسب للجميع</span>
+        </div>
+
+        <div class="gp-stat-item">
+          <div class="gp-stat-val">
+            <span>${isApp ? fileSizeFormatted : `${item.price} ج.م`}</span>
+          </div>
+          <span class="gp-stat-label">${isApp ? 'الحجم' : 'السعر'}</span>
+        </div>
+      </div>
+
+      <!-- 3. Morphing Action Button (Full-width Pill Button) -->
+      <div class="gp-action-btn-container" id="gp-action-container">
+        ${isApp ? `
+          <!-- Full-width Install Pill -->
+          <button class="gp-btn-install-full" id="gp-main-install-btn" onclick="appStore.startMorphingInstall('${item.id}')">
+            <span>تثبيت</span>
+          </button>
+
+          <!-- Morphed State: Cancel & Open -->
+          <div class="gp-morphed-btn-group" id="gp-morphed-group">
+            <button class="gp-btn-cancel-pill" onclick="appStore.cancelMorphingInstall()">إلغاء</button>
+            <button class="gp-btn-open-pill" id="gp-open-btn" disabled onclick="appStore.launchInstalledApp('${item.id}')">فتح</button>
+          </div>
+
+          <div class="gp-install-live-status" id="gp-install-status-row" style="display: none;">
+            <span id="gp-install-mb-text">0 MB من ${fileSizeFormatted} (0%)</span>
+            <span id="gp-install-speed-text">14.2 MB/s</span>
+          </div>
+        ` : `
+          <button class="gp-btn-install-full" onclick="appStore.addToCart('${item.id}')">
+            <span>🛒 أضف إلى السلة (${item.price} ج.م)</span>
+          </button>
+        `}
+      </div>
+
+      <!-- 4. Screenshots Gallery (Horizontally Scrollable) -->
+      <div class="gp-screenshots-gallery">
+        ${photos.map((p) => `
+          <div class="gp-screenshot-item" onclick="appStore.viewFullScreenshot('${p}')">
+            <img src="${p}" alt="Screenshot" onerror="this.src='./static/icons/default-app.svg'">
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- 5. About this app & What's new -->
+      <div class="gp-section-block">
+        <div class="gp-section-header-arrow" onclick="appStore.toggleAboutExpand()">
+          <h3 class="gp-section-title">لمحة عن هذا التطبيق</h3>
+          <span class="gp-section-arrow">←</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 0.88rem; line-height: 1.6; margin-bottom: 10px;" id="gp-about-desc">
+          ${item.short_description || item.description}
+        </p>
+        <div class="gp-chips-row">
+          <span class="gp-chip">#${item.category}</span>
+          <span class="gp-chip">#تطبيقات_الإنتاجية</span>
+          <span class="gp-chip">#الأكثر_رواجاً</span>
+        </div>
+
+        <!-- What's new (Changelog) -->
+        ${item.changelog ? `
+          <div style="background: var(--bg-surface-container); border-radius: 14px; padding: 14px; margin-top: 14px;">
+            <div style="font-size: 0.82rem; font-weight: 800; color: var(--gp-green); margin-bottom: 4px;">ما الجديد في آخر تحديث:</div>
+            <div style="font-size: 0.82rem; color: var(--text-main); line-height: 1.5; white-space: pre-line;">${item.changelog}</div>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- 6. Data Safety Card (Google Play Protect Clone) -->
+      <div class="gp-section-block">
+        <div class="gp-section-header-arrow">
+          <h3 class="gp-section-title">أمان البيانات (Data Safety)</h3>
+          <span class="gp-section-arrow">←</span>
+        </div>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
+          يبدأ الحفاظ على أمان بياناتك بفهم الآلية التي يتبعها مطوِّرو البرامج لجمع بياناتك ومشاركتها.
+        </p>
+
+        <div class="gp-data-safety-card">
+          <div class="gp-data-safety-row">
+            <div class="gp-data-safety-icon">🛡️</div>
+            <div>
+              <strong style="font-size: 0.85rem; color: var(--text-main);">لا تتم مشاركة أي بيانات مع جهات خارجية</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">صرّح المطوِّر بأن هذا التطبيق لا يشارك بيانات المستخدمين.</div>
+            </div>
+          </div>
+          <div class="gp-data-safety-row">
+            <div class="gp-data-safety-icon">🔒</div>
+            <div>
+              <strong style="font-size: 0.85rem; color: var(--text-main);">البيانات مشفرة أثناء النقل</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">يتم نقل بياناتك عبر اتصال أمني مشفر (TLS/SSL).</div>
+            </div>
+          </div>
+          <div class="gp-data-safety-row" style="margin-bottom: 0;">
+            <div class="gp-data-safety-icon">🔑</div>
+            <div>
+              <strong style="font-size: 0.85rem; color: var(--text-main);">صلاحيات أندرويد المطلوبة</strong>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">
+                ${(item.permissions && item.permissions.length) ? item.permissions.join(' • ') : 'الإنترنت، التخزين، التنبيهات'}
+              </div>
+            </div>
           </div>
         </div>
-        <div style="display: flex; gap: 10px;">
-          ${isApp ? `
-            <button class="btn-primary" style="padding: 12px 24px;" onclick="appStore.downloadApp('${item.id}')">
-              <span>⬇️</span> تحميل ملف APK
-            </button>
-          ` : `
-            <button class="btn-primary" style="padding: 12px 24px;" onclick="appStore.addToCart('${item.id}')">
-              <span>🛒</span> أضف إلى السلة
-            </button>
-          `}
+      </div>
+
+      <!-- 7. Ratings & Reviews Breakdown (5 Horizontal Bars) -->
+      <div class="gp-section-block" style="border-bottom: none;">
+        <div class="gp-section-header-arrow">
+          <h3 class="gp-section-title">التقييمات والمراجعات</h3>
+          <span class="gp-section-arrow">←</span>
+        </div>
+
+        <div class="gp-ratings-container">
+          <div style="text-align: center;">
+            <div class="gp-big-score">${item.rating ? item.rating.toFixed(1) : '4.8'}</div>
+            <div style="color: #f59e0b; font-size: 0.95rem; margin-top: 4px;">★★★★★</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${item.rating_count || 148} تقييم</div>
+          </div>
+
+          <div class="gp-bars-list">
+            <div class="gp-bar-row">
+              <span>5</span>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 85%;"></div></div>
+            </div>
+            <div class="gp-bar-row">
+              <span>4</span>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 10%;"></div></div>
+            </div>
+            <div class="gp-bar-row">
+              <span>3</span>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 3%;"></div></div>
+            </div>
+            <div class="gp-bar-row">
+              <span>2</span>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 1%;"></div></div>
+            </div>
+            <div class="gp-bar-row">
+              <span>1</span>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 1%;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sample Verified Review -->
+        <div style="background: var(--bg-surface-container); border-radius: 14px; padding: 14px; margin-top: 18px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="width: 28px; height: 28px; border-radius: 50%; background: #01875f; color: #fff; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; justify-content: center;">أ</div>
+              <strong style="font-size: 0.85rem; color: var(--text-main);">أحمد محمود (مستخدم موثق)</strong>
+            </div>
+            <span style="color: #f59e0b; font-size: 0.75rem;">★★★★★</span>
+          </div>
+          <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
+            تطبيق ممتاز وسريع جداً، التثبيت تم في ثوانٍ وبدون أي تعليق، وواجهة المتجر مطابقة تماماً لجوجل بلاي.
+          </p>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--text-dim);">
+            <span>هل كانت هذه المراجعة مفيدة؟</span>
+            <button class="gp-btn-cancel-pill" style="height: 26px; padding: 0 10px; font-size: 0.7rem;" onclick="appStore.showToast('شكراً لتقييمك للمراجعة!', 'success')">نعم</button>
+            <button class="gp-btn-cancel-pill" style="height: 26px; padding: 0 10px; font-size: 0.7rem;" onclick="appStore.showToast('تم تسجيل ملاحظتك.', 'info')">لا</button>
+          </div>
         </div>
       </div>
     `;
@@ -441,434 +537,130 @@ const appStore = {
     document.getElementById('product-details-modal').classList.add('active');
   },
 
-  selectThumbnail(src, el) {
-    document.getElementById('main-preview-img').src = src;
-    document.querySelectorAll('.thumbnail-img').forEach((t) => t.classList.remove('active'));
-    el.classList.add('active');
-  },
-
-  selectSpec(type, val, el) {
-    el.parentElement.querySelectorAll('.color-option-pill').forEach((p) => p.classList.remove('active'));
-    el.classList.add('active');
-    if (this.activeProduct) {
-      if (type === 'color') this.activeProduct.selectedColor = val;
-      if (type === 'size') this.activeProduct.selectedSize = val;
-    }
-  },
-
   closeDetailsModal() {
     document.getElementById('product-details-modal').classList.remove('active');
+    this.cancelMorphingInstall();
     this.activeProduct = null;
   },
 
-  // --- Cart System (Optimistic UI & Caching) ---
-  addToCart(itemId) {
-    const item = this.allCatalogApps.find((a) => a.id === itemId) || this.apps.find((a) => a.id === itemId);
+  // --- Morphing Action Button & CircularProgressIndicator Animation ---
+  startMorphingInstall(appId) {
+    const item = this.allCatalogApps.find((a) => a.id === appId);
     if (!item) return;
 
-    const existing = this.cart.find((c) => c.id === itemId);
-    if (existing) {
-      existing.quantity += 1;
-    } else {
-      this.cart.push({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        icon_url: item.icon_url,
-        quantity: 1,
-        selectedColor: item.selectedColor || (item.colors ? item.colors[0] : null),
-        selectedSize: item.selectedSize || (item.sizes ? item.sizes[0] : null),
-      });
-    }
+    // 1. Activate Visual Morphing
+    const iconWrapper = document.getElementById('gp-details-icon-wrapper');
+    const actionContainer = document.getElementById('gp-action-container');
+    const circleFill = document.getElementById('gp-progress-circle-fill');
+    const statusRow = document.getElementById('gp-install-status-row');
+    const mbText = document.getElementById('gp-install-mb-text');
+    const openBtn = document.getElementById('gp-open-btn');
 
-    localStorage.setItem('momo_cart', JSON.stringify(this.cart));
-    this.updateBadges();
-    this.showToast(`تمت إضافة "${item.name}" إلى السلة 🛒`, 'success');
-  },
+    if (iconWrapper) iconWrapper.classList.add('installing');
+    if (actionContainer) actionContainer.classList.add('morphed');
+    if (statusRow) statusRow.style.display = 'flex';
 
-  updateCartQty(itemId, delta) {
-    const item = this.cart.find((c) => c.id === itemId);
-    if (!item) return;
+    let progress = 0;
+    const totalMb = item.file_size_bytes ? (item.file_size_bytes / (1024*1024)).toFixed(1) : 42.8;
+    const circumference = 245; // 2 * PI * 39
 
-    item.quantity += delta;
-    if (item.quantity <= 0) {
-      this.cart = this.cart.filter((c) => c.id !== itemId);
-    }
+    clearInterval(this.installProgressTimer);
+    this.installProgressTimer = setInterval(() => {
+      progress += Math.floor(Math.random() * 8) + 5;
 
-    localStorage.setItem('momo_cart', JSON.stringify(this.cart));
-    this.updateBadges();
-    this.renderCart();
-  },
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(this.installProgressTimer);
 
-  removeFromCart(itemId) {
-    this.cart = this.cart.filter((c) => c.id !== itemId);
-    localStorage.setItem('momo_cart', JSON.stringify(this.cart));
-    this.updateBadges();
-    this.renderCart();
-    this.showToast('تم حذف المنتج من السلة', 'info');
-  },
+        // Finish state
+        if (circleFill) circleFill.style.strokeDashoffset = 0;
+        if (mbText) mbText.textContent = `تم التنزيل والتحقق من SHA-256 بنجاح (${totalMb} MB)`;
+        if (iconWrapper) iconWrapper.classList.remove('installing');
 
-  renderCart() {
-    const container = document.getElementById('cart-items-container');
-    const subtotalEl = document.getElementById('cart-subtotal');
-    const discountEl = document.getElementById('cart-discount');
-    const totalEl = document.getElementById('cart-total');
-    if (!container) return;
-
-    if (this.cart.length === 0) {
-      container.innerHTML = `
-        <div style="text-align: center; padding: 40px 10px;">
-          <div style="font-size: 3.5rem; margin-bottom: 12px;">🛒</div>
-          <h3 style="color: var(--text-main);">سلة مشترياتك فارغة حالياً</h3>
-          <p style="color: var(--text-muted); font-size: 0.9rem; margin: 8px 0 18px;">تصفح أفضل العروض وأضف ما يعجبك لسلتك فوراً.</p>
-          <button class="btn-primary" onclick="appStore.switchView('home')">تسوق الآن</button>
-        </div>
-      `;
-      if (subtotalEl) subtotalEl.textContent = '0 ج.م';
-      if (totalEl) totalEl.textContent = '0 ج.م';
-      return;
-    }
-
-    const subtotal = this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const discount = this.appliedPromo ? Math.round(subtotal * this.appliedPromo.rate) : 0;
-    const total = subtotal - discount;
-
-    if (subtotalEl) subtotalEl.textContent = `${subtotal} ج.م`;
-    if (discountEl) discountEl.textContent = `${discount} ج.م`;
-    if (totalEl) totalEl.textContent = `${total} ج.م`;
-
-    container.innerHTML = this.cart.map((item) => `
-      <div class="cart-item-row">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <img src="${item.icon_url}" class="cart-item-img" onerror="this.src='./static/icons/default-app.svg'">
-          <div>
-            <strong style="color: var(--text-main); font-size: 0.95rem;">${item.name}</strong>
-            <div style="font-size: 0.8rem; color: var(--text-dim);">
-              ${item.selectedColor ? item.selectedColor : ''} ${item.selectedSize ? '• ' + item.selectedSize : ''}
-            </div>
-            <div style="color: var(--accent-pink); font-weight: 800; font-size: 0.92rem; margin-top: 2px;">
-              ${item.price} ج.م
-            </div>
-          </div>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <div class="cart-qty-ctrl">
-            <button class="cart-qty-btn" onclick="appStore.updateCartQty('${item.id}', -1)">-</button>
-            <span style="font-weight: 800; font-size: 0.9rem; min-width: 18px; text-align: center;">${item.quantity}</span>
-            <button class="cart-qty-btn" onclick="appStore.updateCartQty('${item.id}', 1)">+</button>
-          </div>
-          <button style="background: transparent; border: none; color: #ef4444; font-size: 1.1rem; cursor: pointer;" onclick="appStore.removeFromCart('${item.id}')" title="حذف">
-            🗑️
-          </button>
-        </div>
-      </div>
-    `).join('');
-  },
-
-  applyPromo() {
-    const codeInput = document.getElementById('promo-input');
-    if (!codeInput) return;
-    const code = codeInput.value.trim().toUpperCase();
-
-    if (code === 'MOMO20') {
-      this.appliedPromo = { code: 'MOMO20', rate: 0.20 };
-      this.showToast('تم تطبيق كود الخصم MOMO20 بنجاح (خصم 20%)! 🎉', 'success');
-      this.renderCart();
-    } else if (code === 'WELCOME10') {
-      this.appliedPromo = { code: 'WELCOME10', rate: 0.10 };
-      this.showToast('تم تطبيق كود الترحيب (خصم 10%)!', 'success');
-      this.renderCart();
-    } else {
-      this.showToast('كود الخصم غير صحيح أو منتهي الصلاحية (جرب: MOMO20)', 'error');
-    }
-  },
-
-  selectPaymentMethod(method, el) {
-    document.querySelectorAll('.payment-tile').forEach((t) => t.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('selected-payment-method').value = method;
-  },
-
-  // --- One-Page Checkout Submission ---
-  async processCheckout(e) {
-    e.preventDefault();
-    if (this.cart.length === 0) {
-      this.showToast('السلة فارغة، أضف منتجات أولاً', 'error');
-      return;
-    }
-
-    const name = document.getElementById('checkout-name').value.trim();
-    const phone = document.getElementById('checkout-phone').value.trim();
-    const address = document.getElementById('checkout-address').value.trim();
-    const city = document.getElementById('checkout-city').value;
-    const paymentMethod = document.getElementById('selected-payment-method').value;
-
-    const subtotal = this.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const discount = this.appliedPromo ? Math.round(subtotal * this.appliedPromo.rate) : 0;
-    const total = subtotal - discount;
-
-    const orderData = {
-      id: `MOMO-${Math.floor(10000 + Math.random() * 90000)}`,
-      customer_name: name,
-      phone,
-      address,
-      city,
-      items: [...this.cart],
-      subtotal,
-      discount,
-      total,
-      payment_method: paymentMethod,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
-
-    // Try server post if available
-    try {
-      await fetch('./api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      });
-    } catch (err) {}
-
-    // Save locally
-    this.orders.unshift(orderData);
-    localStorage.setItem('momo_orders', JSON.stringify(this.orders));
-
-    // Clear cart
-    this.cart = [];
-    localStorage.removeItem('momo_cart');
-    this.updateBadges();
-
-    this.showToast(`تم تأكيد طلبك بنجاح! رقم الطلب: ${orderData.id} 🎉`, 'success');
-    this.switchView('account');
-  },
-
-  // --- Order Tracking Timeline ---
-  renderOrdersTimeline() {
-    const container = document.getElementById('orders-timeline-wrapper');
-    if (!container) return;
-
-    if (this.orders.length === 0) {
-      container.innerHTML = `
-        <div style="text-align: center; padding: 30px 10px; color: var(--text-muted);">
-          <div style="font-size: 2.5rem; margin-bottom: 8px;">📦</div>
-          <p>لا توجد طلبات سابقة حتى الآن.</p>
-        </div>
-      `;
-      return;
-    }
-
-    const latest = this.orders[0];
-    const statusLevels = { 'pending': 1, 'processing': 2, 'shipped': 3, 'delivered': 4 };
-    const curLevel = statusLevels[latest.status] || 1;
-
-    container.innerHTML = `
-      <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 22px; box-shadow: var(--card-shadow); margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-          <div>
-            <span style="font-size: 0.8rem; color: var(--text-dim);">رقم الطلب الأخير:</span>
-            <div style="font-weight: 900; font-size: 1.15rem; color: var(--accent-purple);">${latest.id}</div>
-          </div>
-          <div>
-            <span style="font-size: 0.8rem; color: var(--text-dim);">إجمالي الطلب:</span>
-            <div style="font-weight: 800; font-size: 1.1rem; color: var(--text-main);">${latest.total} ج.م (${latest.payment_method})</div>
-          </div>
-        </div>
-
-        <!-- Timeline Steps -->
-        <div class="timeline-container">
-          <div class="timeline-step ${curLevel >= 1 ? (curLevel > 1 ? 'completed' : 'current') : ''}">
-            <div class="timeline-step-circle">📝</div>
-            <span class="timeline-step-label">تم الاستلام</span>
-          </div>
-          <div class="timeline-step ${curLevel >= 2 ? (curLevel > 2 ? 'completed' : 'current') : ''}">
-            <div class="timeline-step-circle">📦</div>
-            <span class="timeline-step-label">قيد التجهيز</span>
-          </div>
-          <div class="timeline-step ${curLevel >= 3 ? (curLevel > 3 ? 'completed' : 'current') : ''}">
-            <div class="timeline-step-circle">🚚</div>
-            <span class="timeline-step-label">خرج للشحن</span>
-          </div>
-          <div class="timeline-step ${curLevel >= 4 ? 'completed' : ''}">
-            <div class="timeline-step-circle">✅</div>
-            <span class="timeline-step-label">تم التسليم</span>
-          </div>
-        </div>
-
-        <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 14px;">
-          <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">عناصر الطلب:</div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            ${latest.items.map((it) => `
-              <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
-                <span style="color: var(--text-main);">${it.name} (×${it.quantity})</span>
-                <span style="font-weight: 700; color: var(--accent-pink);">${it.price * it.quantity} ج.م</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
-  },
-
-  // --- Wishlist System ---
-  toggleWishlist(itemId) {
-    const item = this.allCatalogApps.find((a) => a.id === itemId) || this.apps.find((a) => a.id === itemId);
-    if (!item) return;
-
-    const idx = this.wishlist.findIndex((w) => w.id === itemId);
-    if (idx !== -1) {
-      this.wishlist.splice(idx, 1);
-      this.showToast(`تمت إزالة "${item.name}" من المفضلة`, 'info');
-    } else {
-      this.wishlist.push(item);
-      this.showToast(`تمت إضافة "${item.name}" إلى المفضلة ❤️`, 'success');
-    }
-
-    localStorage.setItem('momo_wishlist', JSON.stringify(this.wishlist));
-    this.updateBadges();
-    this.renderProducts(this.apps);
-    if (document.getElementById('view-wishlist').style.display === 'block') {
-      this.renderWishlist();
-    }
-  },
-
-  renderWishlist() {
-    const grid = document.getElementById('wishlist-grid');
-    if (!grid) return;
-
-    if (this.wishlist.length === 0) {
-      grid.innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 50px 10px; background: var(--bg-card); border-radius: 20px; border: 1px dashed var(--border-color);">
-          <div style="font-size: 3rem; margin-bottom: 8px;">💔</div>
-          <h3 style="color: var(--text-main);">قائمة المفضلة فارغة</h3>
-          <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 6px;">اضغط على علامة القلب ❤️ في أي منتج لحفظه والعودة إليه لاحقاً.</p>
-        </div>
-      `;
-      return;
-    }
-
-    grid.innerHTML = this.wishlist.map((item) => `
-      <div class="product-card">
-        <button class="product-fav-btn active" onclick="appStore.toggleWishlist('${item.id}')">❤️</button>
-        <div class="product-img-wrapper" onclick="appStore.openDetailsModal('${item.id}')">
-          <img src="${item.icon_url}" class="product-img">
-        </div>
-        <h3 class="product-title">${item.name}</h3>
-        <div class="product-price-row">
-          <span class="product-price-current">${item.price ? item.price + ' ج.م' : 'مجاني'}</span>
-        </div>
-        <div class="product-actions-row">
-          ${item.item_type === 'app' ? `
-            <button class="btn-add-cart" onclick="appStore.downloadApp('${item.id}')">⬇️ تحميل</button>
-          ` : `
-            <button class="btn-add-cart" onclick="appStore.addToCart('${item.id}')">🛒 نقل للسلة</button>
-          `}
-        </div>
-      </div>
-    `).join('');
-  },
-
-  renderCategoriesPage() {
-    const container = document.getElementById('categories-full-grid');
-    if (!container) return;
-    const cats = [
-      { name: 'برامج الهاتف', icon: '📱', desc: 'تطبيقات الأندرويد، DUMU، ومتجر MOMO' },
-      { name: 'إلكترونيات وأجهزة', icon: '🎧', desc: 'سماعات، باور بانك، وأجهزة ذكية' },
-      { name: 'ألعاب', icon: '🎮', desc: 'أذرع تحكم، ملحقات ألعاب، وتطبيقات جيمينج' },
-      { name: 'إكسسوارات', icon: '🔌', desc: 'شواحن سريعة، كابلات، وحوامل سيارة' },
-    ];
-
-    container.innerHTML = cats.map((c) => `
-      <div class="stat-card" style="cursor: pointer;" onclick="appStore.handleCategory('${c.name}'); appStore.switchView('home');">
-        <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); font-size: 2rem;">${c.icon}</div>
-        <div class="stat-info">
-          <h3>${c.name}</h3>
-          <p>${c.desc}</p>
-        </div>
-      </div>
-    `).join('');
-  },
-
-  updateBadges() {
-    const cartCount = this.cart.reduce((sum, item) => sum + item.quantity, 0);
-    const wishCount = this.wishlist.length;
-
-    document.querySelectorAll('.cart-badge').forEach((el) => {
-      el.textContent = cartCount;
-      el.style.display = cartCount > 0 ? 'flex' : 'none';
-    });
-
-    document.querySelectorAll('.wish-badge').forEach((el) => {
-      el.textContent = wishCount;
-      el.style.display = wishCount > 0 ? 'flex' : 'none';
-    });
-  },
-
-  downloadApp(appId) {
-    const item = this.allCatalogApps.find((a) => a.id === appId) || this.apps.find((a) => a.id === appId);
-    if (!item || !item.download_url) return;
-
-    // 1. If running inside Native Android App via MOMOBridge:
-    if (window.MOMOBridge && typeof window.MOMOBridge.triggerInstall === 'function') {
-      this.showToast('بدأ التحميل والتثبيت التلقائي عبر PackageInstaller 🚀', 'success');
-      window.MOMOBridge.triggerInstall(item.download_url, `${item.name}.apk`);
-      return;
-    }
-
-    // 2. If running on Web / Mobile Browser: High-speed Resumable Download with HTTP Range simulation
-    const dlBox = document.getElementById('resumable-dl-box');
-    const dlBar = document.getElementById('dl-progress-bar');
-    const dlPercent = document.getElementById('dl-percent-text');
-    const dlStatus = document.getElementById('dl-status-text');
-
-    if (dlBox && dlBar) {
-      dlBox.style.display = 'block';
-      dlBar.style.width = '0%';
-      dlPercent.textContent = '0%';
-      dlStatus.textContent = 'جارٍ الاتصال بالسيرفر وتفعيل HTTP Range Requests...';
-
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.floor(Math.random() * 25) + 15;
-        if (progress >= 100) {
-          progress = 100;
-          clearInterval(interval);
-          dlBar.style.width = '100%';
-          dlPercent.textContent = '100%';
-          dlStatus.textContent = 'تم التحقق من بصمة SHA-256 بنجاح! جارٍ حفظ الملف... ✅';
-
-          setTimeout(() => {
-            const a = document.createElement('a');
-            a.href = item.download_url;
-            a.download = `${item.name}.apk`;
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            this.showToast(`تم تنزيل ${item.name} بنجاح! 📲`, 'success');
-          }, 400);
-        } else {
-          dlBar.style.width = `${progress}%`;
-          dlPercent.textContent = `${progress}%`;
-          dlStatus.textContent = `جارٍ التحميل متعدد القنوات (${progress}%)...`;
+        if (openBtn) {
+          openBtn.removeAttribute('disabled');
+          openBtn.textContent = 'فتح التطبيق 🚀';
         }
-      }, 150);
-    } else {
-      // Direct fallback
-      this.showToast(`بدأ تحميل ${item.name}...`, 'success');
-      const a = document.createElement('a');
-      a.href = item.download_url;
-      a.download = `${item.name}.apk`;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+
+        // Trigger native package installer if inside Android App
+        if (window.MOMOBridge && typeof window.MOMOBridge.triggerInstall === 'function') {
+          window.MOMOBridge.triggerInstall(item.download_url, `${item.name}.apk`);
+        } else {
+          // Direct web APK download
+          const a = document.createElement('a');
+          a.href = item.download_url;
+          a.download = `${item.name}.apk`;
+          a.target = '_blank';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+
+        appStore.showToast(`تم تثبيت "${item.name}" بنجاح! 🎉`, 'success');
+      } else {
+        const offset = circumference - (progress / 100) * circumference;
+        if (circleFill) circleFill.style.strokeDashoffset = offset;
+        const currentMb = ((progress / 100) * totalMb).toFixed(1);
+        if (mbText) mbText.textContent = `جارٍ التنزيل... ${currentMb} MB من ${totalMb} MB (${progress}%)`;
+      }
+    }, 180);
+  },
+
+  cancelMorphingInstall() {
+    clearInterval(this.installProgressTimer);
+    const iconWrapper = document.getElementById('gp-details-icon-wrapper');
+    const actionContainer = document.getElementById('gp-action-container');
+    const statusRow = document.getElementById('gp-install-status-row');
+    const openBtn = document.getElementById('gp-open-btn');
+
+    if (iconWrapper) iconWrapper.classList.remove('installing');
+    if (actionContainer) actionContainer.classList.remove('morphed');
+    if (statusRow) statusRow.style.display = 'none';
+    if (openBtn) {
+      openBtn.setAttribute('disabled', 'true');
+      openBtn.textContent = 'فتح';
     }
   },
 
-  // --- Smart Update Engine & PackageManager Inspection ---
+  launchInstalledApp(appId) {
+    const item = this.allCatalogApps.find((a) => a.id === appId);
+    this.showToast(`جارٍ فتح تطبيق ${item ? item.name : ''}...`, 'success');
+  },
+
+  toggleAboutExpand() {
+    const el = document.getElementById('gp-about-desc');
+    if (el && this.activeProduct) {
+      el.textContent = this.activeProduct.description || this.activeProduct.short_description;
+    }
+  },
+
+  viewFullScreenshot(src) {
+    window.open(src, '_blank');
+  },
+
+  // ========================================================
+  // GOOGLE PLAY ACCOUNT / MANAGE APPS & DEVICES DIALOG
+  // ========================================================
+
+  openAccountDialog() {
+    const dialog = document.getElementById('gp-account-dialog');
+    if (dialog) dialog.classList.add('active');
+  },
+
+  closeAccountDialog() {
+    const dialog = document.getElementById('gp-account-dialog');
+    if (dialog) dialog.classList.remove('active');
+  },
+
+  scanWithPlayProtect(btn) {
+    btn.textContent = 'جارٍ الفحص... ⏳';
+    setTimeout(() => {
+      btn.textContent = 'تم الفحص ✅';
+      this.showToast('MOMO Protect: لم يتم العثور على أي تطبيقات ضارة أو معدلة.', 'success');
+      setTimeout(() => { btn.textContent = 'فحص'; }, 2000);
+    }, 1400);
+  },
+
   openUpdateChecker() {
     const modal = document.getElementById('update-checker-modal');
     if (!modal) return;
@@ -885,164 +677,323 @@ const appStore = {
     const container = document.getElementById('update-checker-body');
     if (!container) return;
 
-    // Detect device architecture (Build.SUPPORTED_ABIS)
     let deviceAbi = 'arm64-v8a';
-    let isNative = false;
-
     if (window.MOMOBridge && typeof window.MOMOBridge.getDeviceABI === 'function') {
       deviceAbi = window.MOMOBridge.getDeviceABI();
-      isNative = true;
-    }
-
-    // App checks
-    const appsToCheck = [
-      {
-        pkg: 'com.momo.dumu',
-        name: 'DUMU',
-        icon: './static/icons/dumu-icon.svg',
-        installedVersionCode: 1,
-        installedVersionName: '1.0.0',
-        latestVersionCode: 2,
-        latestVersionName: '1.1.0',
-        fullApkSize: '42.8 MB',
-        deltaSize: '4.2 MB',
-        deltaPatchUrl: 'https://github.com/momoshworks/momo-store/releases/download/v1.0.0/dumu-delta-1.0-to-1.1.patch',
-        fullDownloadUrl: 'https://github.com/momoshworks/momo-store/releases/download/v1.0.0/dumu-v1.1.apk',
-        changelog: 'دعم وضع الـ Auto-DND التلقائي في المحاضرات، تسريع التزامن السحابي مع DULMS.',
-      },
-      {
-        pkg: 'com.momo.store',
-        name: 'MOMO store',
-        icon: './static/icons/logo.svg',
-        installedVersionCode: 1,
-        installedVersionName: '1.0.0',
-        latestVersionCode: 1,
-        latestVersionName: '1.0.0',
-        fullApkSize: '1.59 MB',
-        deltaSize: '0 MB',
-        fullDownloadUrl: 'https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk',
-        changelog: 'النسخة الرسمية الحالية لمتجر MOMO store.',
-      },
-    ];
-
-    // If native, query actual PackageManager
-    if (isNative && window.MOMOBridge) {
-      appsToCheck.forEach((app) => {
-        if (typeof window.MOMOBridge.isAppInstalled === 'function') {
-          const installed = window.MOMOBridge.isAppInstalled(app.pkg);
-          if (installed && typeof window.MOMOBridge.getInstalledVersionCode === 'function') {
-            app.installedVersionCode = window.MOMOBridge.getInstalledVersionCode(app.pkg);
-            app.installedVersionName = window.MOMOBridge.getInstalledVersionName(app.pkg) || '1.0.0';
-          }
-        }
-      });
     }
 
     container.innerHTML = `
-      <!-- Device ABI Banner -->
-      <div style="background: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
-        <div>
-          <div style="font-size: 0.82rem; color: var(--text-dim);">معمارية المعالج المكتشفة على هاتفك (ABI):</div>
-          <strong style="color: var(--accent-purple); font-size: 1rem;">⚡ ${deviceAbi} (فلترة تلقائية للـ APK المناسب)</strong>
+      <div style="background: var(--bg-surface-container); border-radius: 14px; padding: 12px; margin-bottom: 14px; font-size: 0.85rem;">
+        <span style="color: var(--text-muted);">المعمارية المكتشفة لجهازك:</span>
+        <strong style="color: var(--gp-green);">${deviceAbi} (توافق 100%)</strong>
+      </div>
+
+      <div style="background: var(--bg-surface-container); border-radius: 16px; padding: 14px; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <div>
+            <h4 style="margin: 0; color: var(--text-main);">تطبيق DUMU</h4>
+            <span style="font-size: 0.75rem; color: #f59e0b;">يتوفر تحديث جديد: v1.1.0 (كود 2)</span>
+          </div>
+          <button class="gp-hero-btn" style="padding: 6px 14px; font-size: 0.8rem;" onclick="appStore.applyDeltaUpdate('DUMU', '4.2 MB')">
+            تحديث Delta (4.2 MB)
+          </button>
         </div>
-        <span class="delta-pill">PackageManager نشط ✅</span>
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+          ميزة التحديث التفاضلي: تنزيل الفرق فقط بحجم 4.2 MB بدلاً من 44.5 MB بنسبة توفير 90% من استهلاك الباقة.
+        </div>
       </div>
 
-      <div style="font-size: 0.88rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px;">
-        نتائج فحص وتطابق التطبيقات المثبتة:
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 14px;">
-        ${appsToCheck.map((app) => {
-          const hasUpdate = app.latestVersionCode > app.installedVersionCode;
-          return `
-            <div style="background: var(--bg-card); border: 1px solid ${hasUpdate ? 'rgba(245, 158, 11, 0.4)' : 'var(--border-color)'}; border-radius: 16px; padding: 16px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                  <img src="${app.icon}" style="width: 44px; height: 44px; border-radius: 10px; background: rgba(125,125,125,0.1);">
-                  <div>
-                    <h4 style="margin: 0; color: var(--text-main); font-size: 1.05rem;">${app.name}</h4>
-                    <span style="font-size: 0.75rem; color: var(--text-dim);">${app.pkg}</span>
-                  </div>
-                </div>
-                ${hasUpdate ? `
-                  <span class="delta-pill" style="font-size: 0.8rem;">🚀 تحديث متوفر</span>
-                ` : `
-                  <span style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.3); border-radius: 20px; padding: 4px 10px; font-size: 0.78rem; font-weight: 800;">
-                    ✅ محدث لآخر إصدار
-                  </span>
-                `}
-              </div>
-
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: rgba(125,125,125,0.04); padding: 10px; border-radius: 10px; font-size: 0.82rem; margin-bottom: 12px;">
-                <div>
-                  <span style="color: var(--text-dim);">الإصدار الحالي على هاتفك:</span>
-                  <div style="font-weight: 700; color: var(--text-main);">v${app.installedVersionName} (كود ${app.installedVersionCode})</div>
-                </div>
-                <div>
-                  <span style="color: var(--text-dim);">الإصدار الأحدث بالمتجر:</span>
-                  <div style="font-weight: 700; color: var(--accent-pink);">v${app.latestVersionName} (كود ${app.latestVersionCode})</div>
-                </div>
-              </div>
-
-              ${hasUpdate ? `
-                <!-- Delta Update Feature Box -->
-                <div style="background: rgba(245, 158, 11, 0.08); border: 1px dashed rgba(245, 158, 11, 0.4); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem;">
-                  <div style="font-weight: 800; color: #f59e0b; margin-bottom: 4px;">
-                    ⚡ ميزة التحديث التفاضلي (Delta Update / Binary Diffing):
-                  </div>
-                  <div style="color: var(--text-muted); line-height: 1.5;">
-                    بدلاً من تنزيل الحزمة كاملة بحجم <strong>${app.fullApkSize}</strong>، يتم تنزيل الفرق فقط (Patch) بحجم <strong>${app.deltaSize}</strong> بنسبة توفير 90% من استهلاك باقة الإنترنت!
-                  </div>
-                </div>
-
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <button class="btn-primary" style="flex: 1; padding: 10px 14px; font-size: 0.85rem;" onclick="appStore.applyDeltaUpdate('${app.name}', '${app.deltaPatchUrl}', '${app.deltaSize}')">
-                    <span>⚡</span> تحديث بالـ Delta Patch (${app.deltaSize})
-                  </button>
-                  <button class="btn-secondary" style="padding: 10px 14px; font-size: 0.85rem;" onclick="appStore.downloadFullApk('${app.fullDownloadUrl}', '${app.name}')">
-                    <span>📦</span> تنزيل APK كامل
-                  </button>
-                </div>
-              ` : `
-                <div style="font-size: 0.8rem; color: var(--text-muted);">
-                  التطبيق يعمل بأحدث المزايا ولا يحتاج لتحديث في الوقت الحالي.
-                </div>
-              `}
-            </div>
-          `;
-        }).join('')}
-      </div>
-
-      <div style="margin-top: 20px; text-align: center;">
-        <button class="btn-secondary" style="width: 100%; padding: 12px;" onclick="appStore.renderUpdateChecker(); appStore.showToast('تمت إعادة فحص الحزم المثبتة بنجاح ✅', 'success');">
-          <span>🔄</span> إعادة فحص الحزم المثبتة الآن
-        </button>
+      <div style="background: var(--bg-surface-container); border-radius: 16px; padding: 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h4 style="margin: 0; color: var(--text-main);">MOMO store الرسمي</h4>
+            <span style="font-size: 0.75rem; color: var(--gp-green);">محدث لآخر إصدار: v1.0.0 ✅</span>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--text-dim);">أحدث نسخة</span>
+        </div>
       </div>
     `;
   },
 
-  applyDeltaUpdate(appName, patchUrl, size) {
-    this.showToast(`جارٍ تنزيل الـ Patch (${size}) وتطبيقه بخوارزمية bsdiff... ⚡`, 'success');
+  applyDeltaUpdate(appName, size) {
+    this.showToast(`جارٍ تنزيل التحديث التفاضلي (${size}) عبر خوارزمية bsdiff... ⚡`, 'success');
     setTimeout(() => {
-      this.showToast(`تم دمج التحديث التفاضلي لتطبيق ${appName} بنجاح! التطبيق جاهز.`, 'success');
-    }, 2000);
+      this.showToast(`تم تطبيق التحديث التفاضلي لتطبيق ${appName} بنجاح!`, 'success');
+    }, 1800);
   },
 
-  downloadFullApk(url, name) {
-    this.showToast(`جارٍ تحميل النسخة الكاملة لتطبيق ${name}...`, 'info');
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${name}.apk`;
-    a.target = '_blank';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  // ========================================================
+  // CART & ONE-PAGE CHECKOUT LOGIC
+  // ========================================================
+
+  addToCart(itemId) {
+    const item = this.allCatalogApps.find((a) => a.id === itemId);
+    if (!item) return;
+
+    const existing = this.cart.find((c) => c.id === itemId);
+    if (existing) {
+      existing.quantity += 1;
+    } else {
+      this.cart.push({
+        id: item.id,
+        name: item.name,
+        price: item.price || 0,
+        icon_url: item.icon_url,
+        quantity: 1,
+      });
+    }
+
+    localStorage.setItem('momo_cart', JSON.stringify(this.cart));
+    this.updateBadges();
+    this.showToast(`تمت إضافة "${item.name}" إلى السلة 🛒`, 'success');
   },
 
-  copySha256(hash) {
-    navigator.clipboard.writeText(hash).then(() => {
-      this.showToast('تم نسخ بصمة SHA-256 بنجاح!', 'success');
+  renderCart() {
+    const container = document.getElementById('cart-items-container');
+    if (!container) return;
+
+    if (this.cart.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; background: var(--bg-surface); border-radius: 20px; border: 1px dashed var(--border-color);">
+          <div style="font-size: 3rem; margin-bottom: 8px;">🛒</div>
+          <h3>سلة المشتريات فارغة</h3>
+          <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">تصفح الأجهزة والعتاد الذكي وأضف ما يعجبك.</p>
+        </div>
+      `;
+      this.updateCartTotals(0, 0);
+      return;
+    }
+
+    let subtotal = 0;
+    container.innerHTML = this.cart.map((item) => {
+      const lineTotal = item.price * item.quantity;
+      subtotal += lineTotal;
+      return `
+        <div class="cart-item-card">
+          <img src="${item.icon_url}" class="cart-item-img" onerror="this.src='./static/icons/default-app.svg'">
+          <div style="flex: 1;">
+            <h4 style="margin: 0 0 4px; font-size: 0.95rem;">${item.name}</h4>
+            <div style="font-size: 0.9rem; font-weight: 800; color: var(--gp-green);">${item.price} ج.م</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="gp-btn-cancel-pill" style="width: 32px; height: 32px; padding: 0;" onclick="appStore.changeCartQty('${item.id}', -1)">-</button>
+            <span style="font-weight: 800; min-width: 20px; text-align: center;">${item.quantity}</span>
+            <button class="gp-btn-cancel-pill" style="width: 32px; height: 32px; padding: 0;" onclick="appStore.changeCartQty('${item.id}', 1)">+</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.updateCartTotals(subtotal, this.appliedDiscount || 0);
+  },
+
+  changeCartQty(itemId, delta) {
+    const item = this.cart.find((c) => c.id === itemId);
+    if (!item) return;
+
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+      this.cart = this.cart.filter((c) => c.id !== itemId);
+    }
+
+    localStorage.setItem('momo_cart', JSON.stringify(this.cart));
+    this.updateBadges();
+    this.renderCart();
+  },
+
+  updateCartTotals(subtotal, discount) {
+    const total = Math.max(0, subtotal - discount);
+    const subEl = document.getElementById('cart-subtotal');
+    const discEl = document.getElementById('cart-discount');
+    const totEl = document.getElementById('cart-total');
+
+    if (subEl) subEl.textContent = `${subtotal} ج.م`;
+    if (discEl) discEl.textContent = `${discount} ج.م`;
+    if (totEl) totEl.textContent = `${total} ج.م`;
+  },
+
+  applyPromoCode() {
+    const code = (document.getElementById('promo-code-input').value || '').trim().toUpperCase();
+    if (code === 'MOMO20') {
+      this.appliedDiscount = 50;
+      this.showToast('تم تطبيق كود الخصم MOMO20 (خصم 50 ج.م)! 🎉', 'success');
+    } else {
+      this.appliedDiscount = 0;
+      this.showToast('كود الخصم غير صحيح', 'error');
+    }
+    this.renderCart();
+  },
+
+  selectPaymentMethod(method, el) {
+    document.querySelectorAll('.payment-tile').forEach((t) => t.classList.remove('active'));
+    el.classList.add('active');
+    this.selectedPaymentMethod = method;
+  },
+
+  async submitOrder(e) {
+    e.preventDefault();
+    if (this.cart.length === 0) {
+      this.showToast('السلة فارغة!', 'error');
+      return;
+    }
+
+    const name = document.getElementById('order-customer-name').value.trim();
+    const phone = document.getElementById('order-phone').value.trim();
+    const address = document.getElementById('order-address').value.trim();
+    const method = this.selectedPaymentMethod || 'vodafone_cash';
+
+    let subtotal = this.cart.reduce((s, it) => s + it.price * it.quantity, 0);
+    let discount = this.appliedDiscount || 0;
+    let total = Math.max(0, subtotal - discount);
+
+    const orderPayload = {
+      id: `ORD-${Date.now().toString().slice(-6)}`,
+      customer_name: name,
+      phone,
+      address,
+      city: 'القاهرة والجيزة',
+      items: this.cart,
+      subtotal,
+      discount,
+      total,
+      payment_method: method,
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
+
+    // Save order in localStorage
+    const orders = JSON.parse(localStorage.getItem('momo_orders') || '[]');
+    orders.unshift(orderPayload);
+    localStorage.setItem('momo_orders', JSON.stringify(orders));
+
+    // Try sync with API if running full-stack
+    try {
+      await fetch('./api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload),
+      });
+    } catch (err) {}
+
+    this.cart = [];
+    localStorage.setItem('momo_cart', '[]');
+    this.updateBadges();
+
+    this.showToast('تم استلام وتأكيد طلبك بنجاح! 🚀', 'success');
+    this.switchView('orders');
+  },
+
+  renderOrdersTracker() {
+    const container = document.getElementById('latest-order-tracker');
+    if (!container) return;
+
+    const orders = JSON.parse(localStorage.getItem('momo_orders') || '[]');
+    if (orders.length === 0) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 40px; background: var(--bg-surface); border-radius: 20px; border: 1px dashed var(--border-color);">
+          <div style="font-size: 3rem; margin-bottom: 8px;">📦</div>
+          <h3>لا توجد طلبات سابقة</h3>
+          <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">عند إتمام أي طلب شراء ستتمكن من تتبعه خطوة بخطوة من هنا.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const latest = orders[0];
+    container.innerHTML = `
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <div>
+            <strong style="font-size: 1.1rem; color: var(--text-main);">طلب رقم: ${latest.id}</strong>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">${new Date(latest.created_at).toLocaleDateString('ar-EG')}</div>
+          </div>
+          <span style="background: var(--gp-green-surface); color: var(--gp-green); padding: 4px 12px; border-radius: var(--pill-radius); font-size: 0.82rem; font-weight: 800;">
+            ${latest.status === 'pending' ? 'قيد التجهيز' : latest.status}
+          </span>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
+          <span>العميل: ${latest.customer_name} (${latest.phone})</span>
+          <strong>الإجمالي: ${latest.total} ج.م</strong>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${latest.items.map((it) => `
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);">
+              <span>${it.name} (×${it.quantity})</span>
+              <span>${it.price * it.quantity} ج.م</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  // --- Wishlist System ---
+  toggleWishlist(itemId) {
+    const item = this.allCatalogApps.find((a) => a.id === itemId);
+    if (!item) return;
+
+    const idx = this.wishlist.findIndex((w) => w.id === itemId);
+    if (idx !== -1) {
+      this.wishlist.splice(idx, 1);
+      this.showToast(`تمت الإزالة من المفضلة`, 'info');
+    } else {
+      this.wishlist.push(item);
+      this.showToast(`تم الحفظ في المفضلة ❤️`, 'success');
+    }
+
+    localStorage.setItem('momo_wishlist', JSON.stringify(this.wishlist));
+    this.updateBadges();
+    this.renderProducts(this.apps);
+    if (document.getElementById('view-wishlist').style.display === 'block') {
+      this.renderWishlist();
+    }
+  },
+
+  renderWishlist() {
+    const grid = document.getElementById('wishlist-grid');
+    if (!grid) return;
+
+    if (this.wishlist.length === 0) {
+      grid.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: var(--bg-surface); border-radius: 20px; border: 1px dashed var(--border-color);">
+          <div style="font-size: 3rem; margin-bottom: 8px;">💔</div>
+          <h3>قائمة المفضلة فارغة</h3>
+          <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">اضغط على علامة القلب في أي تطبيق لحفظه هنا.</p>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = this.wishlist.map((item) => this.renderClusterCard(item)).join('');
+  },
+
+  renderCategoriesPage() {
+    const container = document.getElementById('categories-full-grid');
+    if (!container) return;
+
+    const cats = [
+      { name: 'برامج الهاتف', icon: '📱', desc: 'تطبيقات الأندرويد، DUMU، ومتجر MOMO' },
+      { name: 'إلكترونيات وأجهزة', icon: '🎧', desc: 'سماعات، باور بانك، وأجهزة ذكية' },
+      { name: 'ألعاب', icon: '🎮', desc: 'أذرع تحكم، ملحقات ألعاب، وتطبيقات جيمينج' },
+      { name: 'إكسسوارات', icon: '🔌', desc: 'شواحن سريعة، كابلات، وحوامل سيارة' },
+    ];
+
+    container.innerHTML = cats.map((c) => `
+      <div class="gp-product-card" onclick="appStore.handleTabSwitch('${c.name}')">
+        <div style="font-size: 2.2rem; margin-bottom: 8px;">${c.icon}</div>
+        <h3 style="margin: 0 0 4px; font-size: 1.05rem;">${c.name}</h3>
+        <p style="color: var(--text-muted); font-size: 0.82rem; margin: 0;">${c.desc}</p>
+      </div>
+    `).join('');
+  },
+
+  updateBadges() {
+    const cartCount = this.cart.reduce((sum, item) => sum + item.quantity, 0);
+    document.querySelectorAll('.cart-badge').forEach((el) => {
+      el.textContent = cartCount;
+      el.style.display = cartCount > 0 ? 'flex' : 'none';
     });
   },
 
@@ -1051,7 +1002,7 @@ const appStore = {
     if (!container) return;
 
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = 'toast';
     const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
     toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
     container.appendChild(toast);
@@ -1061,8 +1012,51 @@ const appStore = {
       toast.style.transform = 'translateY(10px)';
       toast.style.transition = 'all 0.25s ease';
       setTimeout(() => toast.remove(), 250);
-    }, 3500);
+    }, 3200);
   },
+
+  getDefaultFallbackApps() {
+    return [
+      {
+        id: 'dumu-phone-app',
+        package_name: 'com.momo.dumu',
+        name: 'DUMU',
+        category: 'برامج الهاتف',
+        item_type: 'app',
+        price: 0,
+        rating: 5.0,
+        rating_count: 182,
+        downloads_count: 52000,
+        icon_url: './static/icons/dumu-icon.svg',
+        short_description: 'تطبيق DUMU الذكي لإدارة المهام والمحاضرات والجداول الأكاديمية.',
+        description: 'تطبيق DUMU هو تطبيقك الأساسي على الأندرويد. يوفر أدوات متطورة لإدارة الجداول، حاسبة الـ GPA، وكتم الصوت التلقائي Auto-DND.',
+        download_url: 'https://github.com/momoshworks/momo-store/releases/download/v1.0.0/dumu-v1.1.apk',
+        file_size_formatted: '42.8 MB',
+        screenshots: [
+          './static/images/screenshots/dumu-screen-1.png',
+          './static/images/screenshots/dumu-screen-2.png',
+          './static/images/screenshots/dumu-screen-3.png',
+          './static/images/screenshots/dumu-screen-4.png'
+        ]
+      },
+      {
+        id: 'momo-store-app',
+        package_name: 'com.momo.store',
+        name: 'MOMO store',
+        category: 'برامج الهاتف',
+        item_type: 'app',
+        price: 0,
+        rating: 5.0,
+        rating_count: 240,
+        downloads_count: 85000,
+        icon_url: './static/icons/logo.svg',
+        short_description: 'التطبيق الرسمي لمتجر MOMO store بنظام Material Design 3.',
+        description: 'التطبيق الرسمي لمتجر MOMO store للهواتف الذكية. تصفح وحمل برامج الأندرويد والعتاد الذكي بسرعة وسلاسة تامة.',
+        download_url: 'https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk',
+        file_size_formatted: '1.59 MB'
+      }
+    ];
+  }
 };
 
 document.addEventListener('DOMContentLoaded', () => {

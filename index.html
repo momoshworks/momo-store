@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>MOMO store | متجر برامج الهاتف والإلكترونيات الذكية</title>
-  <meta name="description" content="متجر MOMO store المتكامل - عروض الهواتف والإلكترونيات، تحميل تطبيق DUMU وتطبيقات الأندرويد بروابط مباشرة، الدفع السهل عبر فودافون كاش وإنستاباي والدفع عند الاستلام.">
+  <title>MOMO store | متجر التطبيقات والأجهزة الذكية - Material Design 3</title>
+  <meta name="description" content="متجر MOMO store المطابق لتجربة Google Play Store بنظام Material You - تحميل تطبيق DUMU وتطبيقات الأندرويد، فاحص التحديثات الذكي، والعتاد الذكي.">
   <link rel="manifest" href="./static/manifest.json">
-  <meta name="theme-color" content="#8b5cf6">
+  <meta name="theme-color" content="#121212">
   <link rel="icon" type="image/svg+xml" href="./static/icons/logo.svg">
   <!-- Stylesheets -->
   <link rel="stylesheet" href="./static/css/style.css">
@@ -15,642 +15,439 @@
 </head>
 <body>
 
-  <!-- Sticky Navbar (Top Bar) -->
-  <header class="navbar">
-    <div class="nav-brand" onclick="appStore.switchView('home')">
-      <img src="./static/icons/logo.svg" alt="MOMO store Logo" class="nav-logo">
-      <div class="brand-text">
-        <h1>MOMO store</h1>
-        <p>متجر برامج الهاتف والإلكترونيات</p>
+  <!-- ================= TOP STICKY HEADER (GOOGLE PLAY SEARCH PILL) ================= -->
+  <header class="gp-top-header">
+    <!-- Floating Search Pill -->
+    <div class="gp-search-pill">
+      <div class="gp-search-main-group">
+        <span class="gp-search-icon">🔍</span>
+        <input type="text" id="store-search-input" class="gp-search-input" placeholder="البحث عن التطبيقات والألعاب والعتاد..." oninput="appStore.handleSearch(this.value)">
+      </div>
+      <div class="gp-search-actions">
+        <button class="gp-voice-btn" onclick="appStore.triggerVoiceSearch()" title="البحث الصوتي">🎤</button>
+        <!-- User Profile Avatar with Updates Badge -->
+        <button class="gp-profile-btn" onclick="appStore.openAccountDialog()" title="حسابي وإدارة التطبيقات والأجهزة">
+          <span>M</span>
+          <span class="gp-profile-update-dot"></span>
+        </button>
       </div>
     </div>
 
-    <div class="nav-actions">
-      <!-- Smart Update Engine Button -->
-      <button class="pwa-btn" onclick="appStore.openUpdateChecker()" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 12px; font-size: 0.82rem;" title="فاحص التحديثات الذكي للأندرويد">
-        <span>🔄</span> فاحص التحديثات
-      </button>
-
-      <!-- Direct APK Download Button -->
-      <a href="https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk" class="pwa-btn" style="background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple)); color: #fff; border: none; text-decoration: none; padding: 6px 12px; font-size: 0.82rem;" title="تحميل تطبيق المتجر APK">
-        <span>📲</span> تطبيق المتجر
-      </a>
-
-      <!-- Wishlist Top Icon -->
-      <button class="icon-btn" onclick="appStore.switchView('wishlist')" title="المفضلة">
-        <span>❤️</span>
-        <span class="badge-counter wish-badge" style="display: none;">0</span>
-      </button>
-
-      <!-- Cart Top Icon -->
-      <button class="icon-btn" onclick="appStore.switchView('cart')" title="سلة المشتريات">
-        <span>🛒</span>
-        <span class="badge-counter cart-badge" style="display: none;">0</span>
-      </button>
-
-      <!-- Theme Switcher -->
-      <button class="icon-btn" onclick="appStore.toggleTheme()" title="تبديل المظهر">
-        <span id="theme-icon">☀️</span>
-      </button>
-    </div>
+    <!-- Material 3 Sub-Navigation Tabs -->
+    <nav class="m3-subtabs-nav" id="m3-subtabs">
+      <button class="m3-tab-item active" data-tab="for-you" onclick="appStore.handleTabSwitch('for-you', this)">لك</button>
+      <button class="m3-tab-item" data-tab="top-charts" onclick="appStore.handleTabSwitch('top-charts', this)">أهم التطبيقات</button>
+      <button class="m3-tab-item" data-tab="phone-apps" onclick="appStore.handleTabSwitch('برامج الهاتف', this)">برامج الهاتف</button>
+      <button class="m3-tab-item" data-tab="hardware" onclick="appStore.handleTabSwitch('إلكترونيات وأجهزة', this)">أجهزة وعتاد</button>
+      <button class="m3-tab-item" data-tab="categories" onclick="appStore.handleTabSwitch('categories', this)">الفئات</button>
+      <button class="m3-tab-item" data-tab="editors-choice" onclick="appStore.handleTabSwitch('editors-choice', this)">اختيارات المحررين</button>
+    </nav>
   </header>
 
-  <main class="app-container">
+  <!-- ================= MAIN APP CONTAINER ================= -->
+  <main class="gp-main-content">
 
-    <!-- ================= SCREEN 1: HOME SCREEN ================= -->
+    <!-- ================= VIEW 1: HOME (GOOGLE PLAY STOREFRONT) ================= -->
     <section id="view-home">
-      <!-- Live Search & Filter Bar (Debounced) -->
-      <div class="search-bar-wrapper">
-        <div class="search-input-box">
-          <input type="text" id="store-search-input" placeholder="ابحث عن برامج، سماعات، هواتف، أو إكسسوارات..." oninput="appStore.handleSearch(this.value)">
-          <span class="search-icon">🔍</span>
-        </div>
-        <button class="filter-btn" onclick="appStore.switchView('categories')">
-          <span>⚙️</span> تصفية
-        </button>
-      </div>
 
-      <!-- 1. Hero Slider (Animated Promotional Carousel) -->
-      <div class="hero-slider-container">
-        <div class="hero-slides-track" id="hero-slides-track">
-          <!-- Slide 1 -->
-          <div class="hero-slide">
-            <div class="slide-content">
-              <span class="slide-badge pink">🔥 عروض نهاية الأسبوع</span>
-              <h2 class="slide-title">خصومات حتى 40% على ملحقات الهواتف والسماعات</h2>
-              <p class="slide-desc">أقوى العروض على باور بانك 65W وسماعات ANC اللاسلكية الأصلية مع شحن سريع مجاني لجميع المحافظات.</p>
-              <button class="slide-cta" onclick="appStore.handleCategory('إلكترونيات وأجهزة')">
-                <span>⚡</span> تصفح العروض الآن
+      <!-- 1. Large Hero Featured Carousel (16:9 Banner) -->
+      <div class="gp-hero-carousel">
+        <div class="gp-hero-track" id="gp-hero-track">
+          <!-- Slide 1: DUMU Phone App -->
+          <div class="gp-hero-card" style="background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200&auto=format&fit=crop&q=80');">
+            <div class="gp-hero-content">
+              <span class="gp-hero-badge">🌟 اختيار المحررين</span>
+              <h2 class="gp-hero-title">تطبيق DUMU الذكي لطلاب الجامعات والهواتف</h2>
+              <p class="gp-hero-desc">إدارة المحاضرات والجداول الأكاديمية، كتم الصوت التلقائي Auto-DND، حاسبة الـ GPA، وتصفح المحاضرات بأمان تام.</p>
+              <button class="gp-hero-btn" onclick="appStore.openDetailsModal('dumu-phone-app')">
+                <span>تثبيت</span>
               </button>
             </div>
-            <img src="./static/icons/logo.svg" alt="Banner" class="slide-img">
-          </div>
-
-          <!-- Slide 2 -->
-          <div class="hero-slide">
-            <div class="slide-content">
-              <span class="slide-badge green">🚀 تطبيق الهاتف الموصى به</span>
-              <h2 class="slide-title">تطبيق DUMU الذكي لطلاب الجامعات</h2>
-              <p class="slide-desc">إدارة المحاضرات، كتم الصوت التلقائي Auto-DND، حاسبة الـ GPA، والبحث الأكاديمي السريع بنقرة واحدة.</p>
-              <button class="slide-cta" style="background: linear-gradient(135deg, #0284c7, #2563eb);" onclick="appStore.downloadApp('dumu-phone-app')">
-                <span>⬇️</span> تحميل DUMU APK مجاناً
-              </button>
-            </div>
-            <img src="./static/icons/dumu-icon.svg" alt="DUMU" class="slide-img">
-          </div>
-
-          <!-- Slide 3 -->
-          <div class="hero-slide">
-            <div class="slide-content">
-              <span class="slide-badge purple">📲 الإصدار الرسمي</span>
-              <h2 class="slide-title">تطبيق MOMO store للأندرويد</h2>
-              <p class="slide-desc">ثبت المتجر على هاتفك المحمول واستمتع بمدير تنزيلات مدمج، فاحص تحديثات ذكي، وتجربة تسوق سريعة Zero-Lag.</p>
-              <a href="https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk" class="slide-cta" style="text-decoration: none;">
-                <span>📲</span> تنزيل تطبيق المتجر (1.58 MB)
-              </a>
-            </div>
-            <img src="./static/icons/logo.svg" alt="MOMO" class="slide-img">
           </div>
         </div>
+      </div>
 
-        <div class="slider-dots">
-          <span class="slider-dot active" onclick="appStore.setSlide(0)"></span>
-          <span class="slider-dot" onclick="appStore.setSlide(1)"></span>
-          <span class="slider-dot" onclick="appStore.setSlide(2)"></span>
+      <!-- 2. Horizontal Cluster: مقترحة لك (Recommended for you) -->
+      <div class="gp-cluster-section">
+        <div class="gp-cluster-header">
+          <div class="gp-cluster-title-wrap">
+            <h3 class="gp-cluster-title">مقترحة لك</h3>
+            <span class="gp-cluster-subtitle">• تطبيقات موصى بها</span>
+          </div>
+          <button class="gp-cluster-arrow-btn" onclick="appStore.handleTabSwitch('برامج الهاتف')">←</button>
+        </div>
+        <div class="gp-horizontal-cluster" id="cluster-recommended">
+          <!-- Rendered dynamically -->
         </div>
       </div>
 
-      <!-- 2. Circular Categories Grid -->
-      <div class="categories-circular-grid">
-        <button class="category-circle-card active" data-category="all" onclick="appStore.handleCategory('all')">
-          <div class="category-icon-circle">✨</div>
-          <span class="category-label">جميع الأقسام</span>
-        </button>
-        <button class="category-circle-card" data-category="برامج الهاتف" onclick="appStore.handleCategory('برامج الهاتف')">
-          <div class="category-icon-circle">📱</div>
-          <span class="category-label">برامج الهاتف</span>
-        </button>
-        <button class="category-circle-card" data-category="إلكترونيات وأجهزة" onclick="appStore.handleCategory('إلكترونيات وأجهزة')">
-          <div class="category-icon-circle">🎧</div>
-          <span class="category-label">إلكترونيات</span>
-        </button>
-        <button class="category-circle-card" data-category="ألعاب" onclick="appStore.handleCategory('ألعاب')">
-          <div class="category-icon-circle">🎮</div>
-          <span class="category-label">ألعاب</span>
-        </button>
-        <button class="category-circle-card" data-category="إكسسوارات" onclick="appStore.handleCategory('إكسسوارات')">
-          <div class="category-icon-circle">🔌</div>
-          <span class="category-label">إكسسوارات</span>
-        </button>
+      <!-- 3. Horizontal Cluster: أجهزة وإلكترونيات مميزة (Hardware & Devices) -->
+      <div class="gp-cluster-section">
+        <div class="gp-cluster-header">
+          <div class="gp-cluster-title-wrap">
+            <h3 class="gp-cluster-title">أحدث الأجهزة والإلكترونيات</h3>
+            <span class="gp-cluster-subtitle">• ملحقات فائقة الأداء</span>
+          </div>
+          <button class="gp-cluster-arrow-btn" onclick="appStore.handleTabSwitch('إلكترونيات وأجهزة')">←</button>
+        </div>
+        <div class="gp-horizontal-cluster" id="cluster-hardware">
+          <!-- Rendered dynamically -->
+        </div>
       </div>
 
-      <!-- Products & Apps Grid Header -->
-      <div class="section-header-row">
-        <h3 class="section-heading">
-          <span>🛍️ المنتجات والتطبيقات المميزة</span>
-        </h3>
-        <span class="apps-count-badge" id="items-count-badge">0 عنصر</span>
+      <!-- 4. Top Charts & All Apps Grid Section -->
+      <div class="gp-cluster-section">
+        <div class="gp-cluster-header">
+          <div class="gp-cluster-title-wrap">
+            <h3 class="gp-cluster-title" id="grid-section-title">أهم التطبيقات والمنتجات</h3>
+            <span class="gp-cluster-subtitle" id="grid-section-count"></span>
+          </div>
+        </div>
+        <!-- Grid Container -->
+        <div class="gp-apps-grid" id="main-apps-grid">
+          <!-- Dynamic Shimmer Skeletons or Product/App Cards -->
+        </div>
       </div>
 
-      <!-- Products Grid (populated dynamically with Shimmer Skeleton fallback) -->
-      <div class="products-grid" id="products-grid">
-        <!-- Rendered via JS -->
-      </div>
     </section>
 
-    <!-- ================= SCREEN 2: CATEGORIES SCREEN ================= -->
+    <!-- ================= VIEW 2: CATEGORIES ================= -->
     <section id="view-categories" style="display: none;">
-      <div style="margin: 20px 0;">
-        <h2 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 6px;">🗂️ تصفح حسب الأقسام</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">اختر الفئة لعرض كافة المنتجات والبرامج المتاحة.</p>
-      </div>
-      <div class="stats-grid" id="categories-full-grid">
-        <!-- Rendered via JS -->
-      </div>
+      <h2 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 18px; color: var(--text-main);">تصفح فئات المتجر</h2>
+      <div class="gp-apps-grid" id="categories-full-grid"></div>
     </section>
 
-    <!-- ================= SCREEN 3: CART & ONE-PAGE CHECKOUT ================= -->
+    <!-- ================= VIEW 3: CART & CHECKOUT ================= -->
     <section id="view-cart" style="display: none;">
-      <div style="margin: 20px 0;">
-        <h2 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 6px;">🛒 سلة المشتريات والدفع السريع</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">إتمام الطلب في صفحة واحدة بسيطة وآمنة.</p>
-      </div>
-
+      <h2 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 18px; color: var(--text-main);">سلة المشتريات والدفع السريع 🛒</h2>
       <div class="cart-layout">
-        <!-- Left: Cart Items & Promo -->
-        <div class="cart-items-box">
-          <h3 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 14px;">المنتجات في السلة</h3>
+        <div id="cart-items-container"></div>
+        <div class="cart-summary-box">
+          <h3 style="font-size: 1.15rem; font-weight: 800; margin-bottom: 14px;">ملخص الدفع السريع</h3>
           
-          <div id="cart-items-container">
-            <!-- Rendered via JS -->
+          <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+            <input type="text" id="promo-code-input" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px 14px; border-radius: 12px;" placeholder="كود الخصم (MOMO20)">
+            <button class="gp-hero-btn" style="padding: 10px 16px;" onclick="appStore.applyPromoCode()">تطبيق</button>
           </div>
 
-          <!-- Promo Code Box -->
-          <div style="margin-top: 24px; display: flex; gap: 8px;">
-            <input type="text" id="promo-input" class="form-control" placeholder="كود الخصم (مثال: MOMO20)">
-            <button class="btn-primary" style="padding: 10px 18px; white-space: nowrap;" onclick="appStore.applyPromo()">
-              تطبيق الكود
-            </button>
+          <div style="font-size: 0.9rem; display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="color: var(--text-muted);">المجموع الفرعي:</span>
+            <strong id="cart-subtotal">0 ج.م</strong>
+          </div>
+          <div style="font-size: 0.9rem; display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--gp-green);">
+            <span>الخصم المطبق:</span>
+            <strong id="cart-discount">0 ج.م</strong>
+          </div>
+          <div style="font-size: 1.25rem; font-weight: 900; display: flex; justify-content: space-between; margin: 12px 0 16px; border-top: 1px solid var(--border-color); padding-top: 10px;">
+            <span>الإجمالي:</span>
+            <strong id="cart-total" style="color: var(--gp-green);">0 ج.م</strong>
           </div>
 
-          <!-- Price Summary Breakdown -->
-          <div style="margin-top: 20px; background: var(--input-bg); padding: 16px; border-radius: 14px; border: 1px solid var(--border-color);">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem;">
-              <span style="color: var(--text-muted);">المجموع الفرعي:</span>
-              <span id="cart-subtotal" style="font-weight: 700;">0 ج.م</span>
+          <!-- One-Page Checkout Form -->
+          <form onsubmit="appStore.submitOrder(event)">
+            <div style="margin-bottom: 10px;">
+              <input type="text" id="order-customer-name" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px; border-radius: 10px; width: 100%;" placeholder="الاسم ثلاثي" required>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; color: var(--accent-emerald);">
-              <span>الخصم المطبق:</span>
-              <span id="cart-discount" style="font-weight: 800;">0 ج.م</span>
+            <div style="margin-bottom: 10px;">
+              <input type="tel" id="order-phone" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px; border-radius: 10px; width: 100%;" placeholder="رقم الهاتف (للتوصيل أو تأكيد الدفع)" required>
             </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem;">
-              <span style="color: var(--text-muted);">الشحن والتوصيل:</span>
-              <span style="font-weight: 800; color: var(--accent-emerald);">مجاني</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 10px; font-size: 1.15rem; font-weight: 900;">
-              <span>الإجمالي النهائي:</span>
-              <span id="cart-total" style="color: var(--accent-pink);">0 ج.م</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right: One-Page Checkout -->
-        <div class="checkout-box">
-          <h3 style="font-size: 1.2rem; font-weight: 800; margin-bottom: 14px;">بيانات التوصيل والدفع</h3>
-
-          <form onsubmit="appStore.processCheckout(event)">
-            <div class="form-group">
-              <label class="form-label">الاسم بالكامل:</label>
-              <input type="text" id="checkout-name" class="form-control" placeholder="محمد علي" required>
+            <div style="margin-bottom: 12px;">
+              <input type="text" id="order-address" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px; border-radius: 10px; width: 100%;" placeholder="العنوان بالتفصيل والمدينة" required>
             </div>
 
-            <div class="form-group">
-              <label class="form-label">رقم الهاتف المحمول (للتواصل والشحن):</label>
-              <input type="tel" id="checkout-phone" class="form-control" placeholder="010XXXXXXXX" required>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">المحافظة / المدينة:</label>
-              <select id="checkout-city" class="form-control">
-                <option value="القاهرة">القاهرة</option>
-                <option value="الجيزة">الجيزة</option>
-                <option value="الإسكندرية">الإسكندرية</option>
-                <option value="الدقهلية / المنصورة">الدقهلية / المنصورة</option>
-                <option value="الشرقية">الشرقية</option>
-                <option value="باقي المحافظات">باقي المحافظات</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">العنوان بالتفصيل:</label>
-              <input type="text" id="checkout-address" class="form-control" placeholder="اسم الشارع، رقم العمارة، الشقة..." required>
-            </div>
-
-            <!-- Payment Methods Grid -->
-            <div class="form-group">
-              <label class="form-label">اختر طريقة الدفع المناسبة:</label>
-              <input type="hidden" id="selected-payment-method" value="vodafone_cash">
-              
-              <div class="payment-methods-grid">
-                <div class="payment-tile active" onclick="appStore.selectPaymentMethod('vodafone_cash', this)">
-                  <span>📱</span>
-                  <div>
-                    <div>فودافون كاش</div>
-                    <small style="color: var(--text-dim); font-size: 0.7rem;">محفظة إلكترونية</small>
-                  </div>
-                </div>
-
-                <div class="payment-tile" onclick="appStore.selectPaymentMethod('instapay', this)">
-                  <span>⚡</span>
-                  <div>
-                    <div>إنستاباي InstaPay</div>
-                    <small style="color: var(--text-dim); font-size: 0.7rem;">تحويل لحظي</small>
-                  </div>
-                </div>
-
-                <div class="payment-tile" onclick="appStore.selectPaymentMethod('cod', this)">
-                  <span>💵</span>
-                  <div>
-                    <div>دفع عند الاستلام</div>
-                    <small style="color: var(--text-dim); font-size: 0.7rem;">معاينة واستلام</small>
-                  </div>
-                </div>
-
-                <div class="payment-tile" onclick="appStore.selectPaymentMethod('card', this)">
-                  <span>💳</span>
-                  <div>
-                    <div>بطاقة بنكية / ميزة</div>
-                    <small style="color: var(--text-dim); font-size: 0.7rem;">دفع آمن بالفيزا</small>
-                  </div>
-                </div>
+            <!-- Payment Methods -->
+            <label style="font-size: 0.82rem; font-weight: 700; color: var(--text-muted);">وسيلة الدفع:</label>
+            <div class="payment-methods-grid">
+              <div class="payment-tile active" data-method="vodafone_cash" onclick="appStore.selectPaymentMethod('vodafone_cash', this)">
+                <div style="font-size: 1.3rem;">📱</div>
+                <strong style="font-size: 0.8rem;">فودافون كاش</strong>
+              </div>
+              <div class="payment-tile" data-method="instapay" onclick="appStore.selectPaymentMethod('instapay', this)">
+                <div style="font-size: 1.3rem;">⚡</div>
+                <strong style="font-size: 0.8rem;">إنستاباي (InstaPay)</strong>
+              </div>
+              <div class="payment-tile" data-method="cod" onclick="appStore.selectPaymentMethod('cod', this)">
+                <div style="font-size: 1.3rem;">💵</div>
+                <strong style="font-size: 0.8rem;">الدفع عند الاستلام</strong>
+              </div>
+              <div class="payment-tile" data-method="card" onclick="appStore.selectPaymentMethod('card', this)">
+                <div style="font-size: 1.3rem;">💳</div>
+                <strong style="font-size: 0.8rem;">بطاقة بنكية</strong>
               </div>
             </div>
 
-            <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-size: 1.05rem;">
-              <span>🚀</span> تأكيد وإتمام الطلب الآن
+            <button type="submit" class="gp-btn-install-full" style="width: 100%; height: 50px; font-size: 1rem; margin-top: 10px;">
+              <span>تأكيد الطلب الآن 🚀</span>
             </button>
           </form>
         </div>
       </div>
     </section>
 
-    <!-- ================= SCREEN 4: WISHLIST SCREEN ================= -->
+    <!-- ================= VIEW 4: WISHLIST ================= -->
     <section id="view-wishlist" style="display: none;">
-      <div style="margin: 20px 0;">
-        <h2 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 6px;">❤️ المنتجات المفضلة</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">العناصر التي قمت بحفظها لشرائها أو تحميلها لاحقاً.</p>
-      </div>
-
-      <div class="products-grid" id="wishlist-grid">
-        <!-- Rendered via JS -->
-      </div>
+      <h2 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 18px; color: var(--text-main);">تطبيقاتك ومنتجاتك المفضلة ❤️</h2>
+      <div class="gp-apps-grid" id="wishlist-grid"></div>
     </section>
 
-    <!-- ================= SCREEN 5: ACCOUNT & LIVE ORDER TRACKING ================= -->
-    <section id="view-account" style="display: none;">
-      <div style="margin: 20px 0;">
-        <h2 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 6px;">👤 حسابي وتتبع الطلبات الحية</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem;">تتبع مسار شحناتك خطوة بخطوة وإدارة إعداداتك.</p>
-      </div>
-
-      <!-- User Profile Card -->
-      <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; box-shadow: var(--card-shadow);">
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple)); display: flex; align-items: center; justify-content: center; font-size: 1.8rem;">
-            👤
-          </div>
-          <div>
-            <h3 style="font-size: 1.15rem; font-weight: 800;">عميل MOMO store المميز</h3>
-            <p style="font-size: 0.8rem; color: var(--text-muted);">تسجيل سريع متصل بحسابك</p>
-          </div>
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn-secondary" style="font-size: 0.82rem; padding: 8px 14px;" onclick="appStore.showToast('تم تحديث بياناتك بنجاح', 'success')">
-            تحديث البيانات
-          </button>
-        </div>
-      </div>
-
-      <!-- Live Order Tracking Timeline Box -->
-      <div id="orders-timeline-wrapper">
-        <!-- Rendered via JS -->
-      </div>
-
-      <!-- Quick Shortcuts -->
-      <div class="stats-grid">
-        <div class="stat-card" style="cursor: pointer;" onclick="appStore.switchView('cart')">
-          <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">🛒</div>
-          <div class="stat-info">
-            <h3 class="cart-badge">0</h3>
-            <p>منتجات في السلة</p>
-          </div>
-        </div>
-        <div class="stat-card" style="cursor: pointer;" onclick="appStore.switchView('wishlist')">
-          <div class="stat-icon" style="background: rgba(236, 72, 153, 0.15); color: var(--accent-pink);">❤️</div>
-          <div class="stat-info">
-            <h3 class="wish-badge">0</h3>
-            <p>عناصر المفضلة</p>
-          </div>
-        </div>
-        <div class="stat-card" style="cursor: pointer;" onclick="appStore.downloadApp('momo-store-app')">
-          <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--primary);">📲</div>
-          <div class="stat-info">
-            <h3>APK</h3>
-            <p>تحميل تطبيق المتجر</p>
-          </div>
-        </div>
-      </div>
+    <!-- ================= VIEW 5: ORDERS & TIMELINE ================= -->
+    <section id="view-orders" style="display: none;">
+      <h2 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 18px; color: var(--text-main);">تتبع الطلبات وحسابي 📦</h2>
+      <div id="latest-order-tracker"></div>
     </section>
 
-    <!-- ================= SCREEN 6: MERCHANT ADMIN VIEW ================= -->
-    <section id="view-admin" style="display: none;">
+    <!-- ================= VIEW 6: MERCHANT & ADMIN ================= -->
+    <section id="view-merchant" style="display: none;">
       <div class="admin-container">
-
-        <!-- Login Card (when logged out) -->
-        <div id="admin-login-card" class="update-checker-container" style="max-width: 480px;">
-          <div class="checker-header">
-            <div class="hero-tag"><span>🔐</span> إدارة MOMO store</div>
-            <h2>تسجيل دخول التاجر</h2>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">
-              أدخل بيانات الحساب لإدارة المنتجات ومتابعة طلبات العملاء.
-            </p>
-          </div>
-
-          <form id="admin-login-form" onsubmit="adminPanel.login(event)">
-            <div class="form-group">
-              <label class="form-label">اسم المستخدم:</label>
-              <input type="text" id="admin-user-input" class="form-control" value="admin" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label">كلمة المرور:</label>
-              <input type="password" id="admin-pass-input" class="form-control" value="admin123" required>
-              <span style="font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; display: block;">
-                🔑 الحساب الافتراضي: <code>admin</code> / <code>admin123</code>
-              </span>
-            </div>
-            <button type="submit" class="btn-primary" style="width: 100%; padding: 12px;">
-              <span>🚀</span> تسجيل الدخول للوحة التاجر
-            </button>
+        <!-- Auth & Dashboard managed by adminPanel -->
+        <div id="admin-login-card" class="cart-summary-box" style="max-width: 480px; margin: 40px auto;">
+          <h2 style="font-size: 1.4rem; font-weight: 900; margin-bottom: 6px;">تسجيل دخول التاجر والمطور 🚀</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 18px;">لوحة تحكم MOMO store لإدارة التطبيقات والطلبات.</p>
+          <form onsubmit="adminPanel.login(event)">
+            <input type="text" id="admin-user-input" class="gp-search-input" style="background: var(--bg-surface-container); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 12px;" value="admin" required>
+            <input type="password" id="admin-pass-input" class="gp-search-input" style="background: var(--bg-surface-container); padding: 12px; border-radius: 12px; width: 100%; margin-bottom: 16px;" value="admin123" required>
+            <button type="submit" class="gp-btn-install-full">تسجيل الدخول</button>
           </form>
         </div>
 
-        <!-- Dashboard View (when logged in) -->
         <div id="admin-dashboard-view" style="display: none;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
-            <div>
-              <h2 style="font-size: 1.8rem; font-weight: 800;">لوحة تحكم التاجر المتنقلة</h2>
-              <p style="color: var(--text-muted); font-size: 0.9rem;">متابعة الطلبات اللحظية، وتغيير حالتها، وإضافة منتجات جديدة</p>
-            </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button class="btn-primary" onclick="adminPanel.openCreateModal()">
-                <span>➕</span> إضافة منتج / تطبيق
-              </button>
-              <button class="btn-secondary" onclick="adminPanel.exportCatalogFile()" title="تنزيل catalog.json المحدث">
-                <span>📥</span> تصدير catalog.json
-              </button>
-              <button class="btn-secondary" onclick="adminPanel.logout()">
-                <span>🚪</span> خروج
-              </button>
+          <!-- Admin toolbar & tabs -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 1.4rem; font-weight: 900;">لوحة تحكم المتجر</h2>
+            <div style="display: flex; gap: 8px;">
+              <button class="gp-hero-btn" onclick="adminPanel.openCreateModal()">+ إضافة تطبيق أو منتج</button>
+              <button class="gp-btn-cancel-pill" style="height: 40px; padding: 0 14px;" onclick="adminPanel.exportCatalogFile()">تصدير catalog.json</button>
+              <button class="gp-btn-cancel-pill" style="height: 40px; padding: 0 14px; color: #ef4444;" onclick="adminPanel.logout()">خروج</button>
             </div>
           </div>
-
-          <!-- Merchant KPIs -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">💰</div>
-              <div class="stat-info">
-                <h3 id="stat-total-revenue">0 ج.م</h3>
-                <p>إجمالي المبيعات</p>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon" style="background: rgba(56, 189, 248, 0.15); color: var(--primary);">📋</div>
-              <div class="stat-info">
-                <h3 id="stat-total-orders">0</h3>
-                <p>إجمالي الطلبات</p>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">📦</div>
-              <div class="stat-info">
-                <h3 id="stat-total-apps">0</h3>
-                <p>المنتجات والبرامج</p>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon" style="background: rgba(236, 72, 153, 0.15); color: var(--accent-pink);">🏷️</div>
-              <div class="stat-info">
-                <h3 id="stat-categories-count">0</h3>
-                <p>الأقسام النشطة</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Orders Management Table -->
-          <div style="margin-top: 30px;">
-            <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-              <span>📦</span> إدارة وتتبع طلبات العملاء (Orders Manager)
-            </h3>
-            <div class="admin-table-container">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>رقم الطلب</th>
-                    <th>العميل والهاتف</th>
-                    <th>العناصر</th>
-                    <th>الإجمالي</th>
-                    <th>الحالة الحالية</th>
-                    <th>تحديث الحالة</th>
-                  </tr>
-                </thead>
-                <tbody id="admin-orders-tbody">
-                  <!-- Rendered dynamically -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Products / Apps Table -->
-          <div style="margin-top: 36px;">
-            <h3 style="font-size: 1.25rem; font-weight: 800; margin-bottom: 12px;">
-              <span>📱</span> قائمة المنتجات والبرامج المعروضة
-            </h3>
-            <div class="admin-table-container">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>الاسم</th>
-                    <th>القسم</th>
-                    <th>السعر</th>
-                    <th>التقييم</th>
-                    <th>إجراءات</th>
-                  </tr>
-                </thead>
-                <tbody id="admin-apps-tbody">
-                  <!-- Rendered dynamically -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
+          <!-- Admin Items List -->
+          <div id="admin-items-list" class="gp-apps-grid"></div>
         </div>
       </div>
     </section>
 
   </main>
 
-  <!-- ================= BOTTOM NAVIGATION BAR (FOR MOBILE & DESKTOP) ================= -->
-  <nav class="bottom-nav">
-    <button class="bottom-nav-item active" id="bnav-home" onclick="appStore.switchView('home')">
-      <span class="nav-icon">🏠</span>
-      <span>الرئيسية</span>
+  <!-- ================= GOOGLE PLAY APP DETAILS SCREEN (MODAL SHEET) ================= -->
+  <div class="gp-details-overlay" id="product-details-modal" onclick="if(event.target === this) appStore.closeDetailsModal()">
+    <div class="gp-details-sheet" id="gp-details-sheet">
+      <!-- Drag handle & Close -->
+      <div class="gp-sheet-header">
+        <div style="width: 36px;"></div>
+        <div class="gp-sheet-drag-handle"></div>
+        <button class="gp-sheet-close-btn" onclick="appStore.closeDetailsModal()">✕</button>
+      </div>
+
+      <div id="product-details-body">
+        <!-- Injected dynamically with Google Play Anatomy by appStore.openDetailsModal() -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= GOOGLE PLAY ACCOUNT / MANAGE APPS & DEVICE DIALOG ================= -->
+  <div class="gp-dialog-overlay" id="gp-account-dialog" onclick="if(event.target === this) appStore.closeAccountDialog()">
+    <div class="gp-account-dialog">
+      <!-- Profile Header -->
+      <div class="gp-account-top-card">
+        <div class="gp-profile-btn" style="width: 48px; height: 48px; font-size: 1.3rem;">M</div>
+        <div>
+          <h3 style="font-size: 1.1rem; font-weight: 800; color: var(--text-main);">حساب MOMO store</h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">momo.developer@android.store</span>
+        </div>
+      </div>
+
+      <!-- Storage Meter Box -->
+      <div class="gp-storage-meter-box">
+        <div style="display: flex; justify-content: space-between; font-size: 0.82rem;">
+          <strong style="color: var(--text-main);">ذاكرة الهاتف المستخدمة</strong>
+          <span style="color: var(--text-muted);">45 جيجابايت من 128 جيجابايت</span>
+        </div>
+        <div class="gp-storage-bar-bg">
+          <div class="gp-storage-bar-fill"></div>
+        </div>
+        <span style="font-size: 0.74rem; color: var(--gp-green); font-weight: 700;">🟢 المساحة كافية لتثبيت التطبيقات والألعاب</span>
+      </div>
+
+      <!-- Google Play Protect Security Card -->
+      <div class="gp-storage-meter-box" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.5rem;">🛡️</span>
+          <div>
+            <strong style="font-size: 0.88rem; color: var(--text-main);">MOMO Protect (حماية وأمان)</strong>
+            <div style="font-size: 0.75rem; color: var(--gp-green);">لم يتم العثور على أي تطبيقات ضارة</div>
+          </div>
+        </div>
+        <button class="gp-btn-cancel-pill" style="height: 34px; padding: 0 14px; font-size: 0.8rem;" onclick="appStore.scanWithPlayProtect(this)">
+          فحص
+        </button>
+      </div>
+
+      <!-- Updates Available Card -->
+      <div class="gp-storage-meter-box" style="margin-bottom: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div>
+            <strong style="font-size: 0.88rem; color: var(--text-main);">التحديثات المتوفرة (Updates)</strong>
+            <div style="font-size: 0.75rem; color: #f59e0b;">يتوفر تحديث لتطبيق DUMU (Delta Diffing 4.2 MB)</div>
+          </div>
+          <button class="gp-hero-btn" style="padding: 6px 14px; font-size: 0.8rem;" onclick="appStore.closeAccountDialog(); appStore.openUpdateChecker();">
+            تحديث الكل
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Menu Links -->
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div class="gp-dialog-menu-item" onclick="appStore.closeAccountDialog(); appStore.switchView('wishlist');">
+          <span>❤️ قائمة التطبيقات والمنتجات المفضلة</span>
+          <span>←</span>
+        </div>
+        <div class="gp-dialog-menu-item" onclick="appStore.closeAccountDialog(); appStore.switchView('orders');">
+          <span>📦 تتبع الشحنات والطلبات</span>
+          <span>←</span>
+        </div>
+        <div class="gp-dialog-menu-item" onclick="appStore.toggleTheme();">
+          <span>🌓 تبديل المظهر (فاتح / داكن)</span>
+          <span id="theme-icon-text">داكن 🌙</span>
+        </div>
+        <div class="gp-dialog-menu-item" onclick="appStore.closeAccountDialog(); appStore.switchView('merchant');">
+          <span>⚙️ لوحة تحكم التاجر والمطور</span>
+          <span>←</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= UPDATE CHECKER & DELTA MODAL ================= -->
+  <div class="gp-dialog-overlay" id="update-checker-modal" onclick="if(event.target === this) appStore.closeUpdateChecker()">
+    <div class="gp-account-dialog" style="max-width: 600px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 1.15rem; font-weight: 800;">🔄 فاحص التحديثات والتثبيت الذكي</h3>
+        <button class="gp-sheet-close-btn" onclick="appStore.closeUpdateChecker()">✕</button>
+      </div>
+      <div id="update-checker-body"></div>
+    </div>
+  </div>
+
+  <!-- ================= ADD / EDIT PRODUCT MODAL (ADMIN) ================= -->
+  <div class="gp-details-overlay" id="admin-app-modal" onclick="if(event.target === this) adminPanel.closeAppModal()">
+    <div class="gp-details-sheet" style="max-width: 600px; padding: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 id="admin-modal-title" style="font-weight: 900;">إضافة عنصر جديد</h3>
+        <button class="gp-sheet-close-btn" onclick="adminPanel.closeAppModal()">✕</button>
+      </div>
+
+      <!-- APK Parser Dropzone -->
+      <div class="gp-storage-meter-box" style="border: 2px dashed var(--gp-green); cursor: pointer; text-align: center;" onclick="document.getElementById('admin-apk-file-input').click()">
+        <input type="file" id="admin-apk-file-input" accept=".apk" style="display: none;" onchange="adminPanel.handleApkFileSelected(this)">
+        <div style="font-size: 1.8rem;">📦⚡</div>
+        <strong style="color: var(--gp-green); font-size: 0.92rem;">محلل ملفات الـ APK التلقائي (Auto APK Parser)</strong>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">اسحب أو اختر ملف الـ APK لتفريغ الحزمة، الإصدار، الأذونات وحساب SHA-256 فورياً.</p>
+        <div id="apk-parse-status" style="margin-top: 6px;"></div>
+      </div>
+
+      <form id="admin-app-form" onsubmit="adminPanel.saveApp(event)">
+        <input type="hidden" id="form-is-edit" value="false">
+        <input type="hidden" id="form-id">
+        <input type="hidden" id="form-sha256" value="">
+        <input type="hidden" id="form-package-name" value="">
+        <input type="hidden" id="form-version-code" value="1">
+        <input type="hidden" id="form-version-name" value="1.0.0">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted);">النوع:</label>
+            <select id="form-type" class="gp-search-input" style="background: var(--bg-surface-container); padding: 8px; border-radius: 8px; width: 100%;" onchange="adminPanel.toggleTypeFields(this.value)">
+              <option value="app">📱 تطبيق أندرويد (APK)</option>
+              <option value="product">📦 منتج إلكتروني / عتاد</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted);">القسم:</label>
+            <select id="form-category" class="gp-search-input" style="background: var(--bg-surface-container); padding: 8px; border-radius: 8px; width: 100%;">
+              <option value="برامج الهاتف">برامج الهاتف</option>
+              <option value="إلكترونيات وأجهزة">إلكترونيات وأجهزة</option>
+              <option value="ألعاب">ألعاب</option>
+              <option value="إكسسوارات">إكسسوارات</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 0.75rem; color: var(--text-muted);">الاسم:</label>
+          <input type="text" id="form-name" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px; border-radius: 8px; width: 100%;" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted);">السعر (0 للتطبيقات):</label>
+            <input type="number" id="form-price" class="gp-search-input" style="background: var(--bg-surface-container); padding: 8px; border-radius: 8px; width: 100%;" value="0">
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted);">السعر قبل الخصم:</label>
+            <input type="number" id="form-old-price" class="gp-search-input" style="background: var(--bg-surface-container); padding: 8px; border-radius: 8px; width: 100%;" value="0">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 0.75rem; color: var(--text-muted);">الوصف المختصر:</label>
+          <input type="text" id="form-short-desc" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px; border-radius: 8px; width: 100%;">
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 0.75rem; color: var(--text-muted);">الوصف التفصيلي:</label>
+          <textarea id="form-desc" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px; border-radius: 8px; width: 100%;" rows="3"></textarea>
+        </div>
+
+        <div style="margin-bottom: 16px;">
+          <label style="font-size: 0.75rem; color: var(--text-muted);">رابط الأيقونة أو الصورة:</label>
+          <input type="text" id="form-icon-url" class="gp-search-input" style="background: var(--bg-surface-container); padding: 10px; border-radius: 8px; width: 100%;">
+        </div>
+
+        <button type="submit" class="gp-btn-install-full">حفظ ونشر في المتجر</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MATERIAL 3 BOTTOM NAVIGATION BAR ================= -->
+  <nav class="m3-bottom-nav">
+    <!-- 1. Games -->
+    <button class="m3-nav-item" data-view="home" onclick="appStore.switchBottomNav('games', this)">
+      <div class="m3-active-indicator-pill">🎮</div>
+      <span class="m3-nav-label">الألعاب</span>
     </button>
 
-    <button class="bottom-nav-item" id="bnav-categories" onclick="appStore.switchView('categories')">
-      <span class="nav-icon">🗂️</span>
-      <span>الأقسام</span>
+    <!-- 2. Apps (Default Active) -->
+    <button class="m3-nav-item active" data-view="home" onclick="appStore.switchBottomNav('apps', this)">
+      <div class="m3-active-indicator-pill">📱</div>
+      <span class="m3-nav-label">التطبيقات</span>
     </button>
 
-    <button class="bottom-nav-item" id="bnav-cart" onclick="appStore.switchView('cart')">
-      <span class="nav-icon">🛒</span>
-      <span class="badge-counter cart-badge" style="display: none;">0</span>
-      <span>السلة</span>
+    <!-- 3. Hardware / Deals -->
+    <button class="m3-nav-item" data-view="categories" onclick="appStore.switchBottomNav('hardware', this)">
+      <div class="m3-active-indicator-pill">🛍️</div>
+      <span class="m3-nav-label">العتاد والمتجر</span>
     </button>
 
-    <button class="bottom-nav-item" id="bnav-wishlist" onclick="appStore.switchView('wishlist')">
-      <span class="nav-icon">❤️</span>
-      <span class="badge-counter wish-badge" style="display: none;">0</span>
-      <span>المفضلة</span>
+    <!-- 4. Cart -->
+    <button class="m3-nav-item" data-view="cart" onclick="appStore.switchBottomNav('cart', this)">
+      <div class="m3-active-indicator-pill">
+        🛒
+        <span class="m3-nav-badge cart-badge" style="display: none;">0</span>
+      </div>
+      <span class="m3-nav-label">السلة</span>
     </button>
 
-    <button class="bottom-nav-item" id="bnav-account" onclick="appStore.switchView('account')">
-      <span class="nav-icon">👤</span>
-      <span>حسابي</span>
-    </button>
-
-    <button class="bottom-nav-item" id="bnav-admin" onclick="appStore.switchView('admin')">
-      <span class="nav-icon">⚙️</span>
-      <span>التاجر</span>
+    <!-- 5. Updates & Manage -->
+    <button class="m3-nav-item" data-view="orders" onclick="appStore.switchBottomNav('updates', this)">
+      <div class="m3-active-indicator-pill">⚡</div>
+      <span class="m3-nav-label">إدارتي</span>
     </button>
   </nav>
 
-  <!-- ================= PRODUCT DETAILS MODAL ================= -->
-  <div class="modal-overlay" id="product-details-modal" onclick="if(event.target === this) appStore.closeDetailsModal()">
-    <div class="modal-container">
-      <div class="modal-header">
-        <span style="font-weight: 800; color: var(--text-main);">تفاصيل ومواصفات المنتج</span>
-        <button class="modal-close-btn" onclick="appStore.closeDetailsModal()">✕</button>
-      </div>
-      <div class="modal-body" id="product-details-body">
-        <!-- Rendered dynamically -->
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= ADD / EDIT PRODUCT MODAL ================= -->
-  <div class="modal-overlay" id="admin-app-modal" onclick="if(event.target === this) adminPanel.closeAppModal()">
-    <div class="modal-container" style="max-width: 650px;">
-      <div class="modal-header">
-        <h3 id="admin-modal-title" style="color: var(--text-main); font-weight: 800;">إضافة منتج أو تطبيق جديد</h3>
-        <button class="modal-close-btn" onclick="adminPanel.closeAppModal()">✕</button>
-      </div>
-
-      <div class="modal-body">
-        <!-- APK Parser Auto-Fill Box -->
-        <div class="apk-parser-dropzone" onclick="document.getElementById('admin-apk-file-input').click()">
-          <input type="file" id="admin-apk-file-input" accept=".apk" style="display: none;" onchange="adminPanel.handleApkFileSelected(this)">
-          <div style="font-size: 2rem; margin-bottom: 6px;">⚡📦</div>
-          <strong style="color: var(--accent-purple); font-size: 0.95rem;">محلل ملفات الـ APK التلقائي (APK Parser)</strong>
-          <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">اختر أو اسحب ملف الـ APK لاستخراج اسم الحزمة، رقم الإصدار، الأذونات، وحساب SHA-256 تلقائياً بدون إدخال يدوي.</p>
-          <div id="apk-parse-status" style="margin-top: 6px; font-weight: 700; font-size: 0.8rem; color: var(--accent-emerald);"></div>
-        </div>
-
-        <form id="admin-app-form" onsubmit="adminPanel.saveApp(event)">
-          <input type="hidden" id="form-is-edit" value="false">
-          <input type="hidden" id="form-id">
-          <input type="hidden" id="form-sha256" value="">
-          <input type="hidden" id="form-package-name" value="">
-          <input type="hidden" id="form-version-code" value="1">
-          <input type="hidden" id="form-version-name" value="1.0.0">
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-            <div class="form-group">
-              <label class="form-label">نوع العنصر:</label>
-              <select id="form-type" class="form-control" onchange="adminPanel.toggleTypeFields(this.value)">
-                <option value="product">📦 منتج إلكتروني / ملموس</option>
-                <option value="app">📱 تطبيق أندرويد (APK)</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">القسم:</label>
-              <select id="form-category" class="form-control">
-                <option value="إلكترونيات وأجهزة">إلكترونيات وأجهزة</option>
-                <option value="برامج الهاتف">برامج الهاتف</option>
-                <option value="ألعاب">ألعاب</option>
-                <option value="إكسسوارات">إكسسوارات</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">اسم المنتج أو التطبيق:</label>
-            <input type="text" id="form-name" class="form-control" placeholder="مثال: سماعات لاسلكية برو" required>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-            <div class="form-group">
-              <label class="form-label">السعر الحالي (ج.م):</label>
-              <input type="number" id="form-price" class="form-control" placeholder="750 (0 للتطبيقات المجانية)">
-            </div>
-            <div class="form-group">
-              <label class="form-label">السعر قبل الخصم (ج.م):</label>
-              <input type="number" id="form-old-price" class="form-control" placeholder="1200">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">وصف مختصر:</label>
-            <input type="text" id="form-short-desc" class="form-control" placeholder="سطر ملخص للمواصفات">
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">الوصف التفصيلي والمميزات:</label>
-            <textarea id="form-desc" class="form-control" rows="3" placeholder="شرح تفصيلي للمميزات..."></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">رابط الصورة أو أيقونة المنتج:</label>
-            <input type="text" id="form-icon-url" class="form-control" placeholder="https://... أو ./static/icons/default-app.svg">
-          </div>
-
-          <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;">
-            <span>💾</span> حفظ ونشر الآن
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= SMART UPDATE ENGINE MODAL ================= -->
-  <div class="modal-overlay" id="update-checker-modal" onclick="if(event.target === this) appStore.closeUpdateChecker()">
-    <div class="modal-container" style="max-width: 650px;">
-      <div class="modal-header">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 1.4rem;">🔄</span>
-          <h3 style="color: var(--text-main); font-weight: 800;">محرك التحديثات الذكي (Smart Update Engine)</h3>
-        </div>
-        <button class="modal-close-btn" onclick="appStore.closeUpdateChecker()">✕</button>
-      </div>
-      <div class="modal-body" id="update-checker-body">
-        <!-- Rendered dynamically by appStore.renderUpdateChecker() -->
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Container -->
+  <!-- Toast Notification Container -->
   <div class="toast-container" id="toast-container"></div>
 
-  <!-- Scripts -->
+  <!-- JavaScript Modules -->
   <script src="./static/js/app.js"></script>
   <script src="./static/js/admin.js"></script>
 </body>

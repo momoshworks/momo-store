@@ -1,7 +1,7 @@
 {
   "catalog_version": "2.1.0",
   "store_name": "MOMO store",
-  "generated_at": "2026-10-30T14:48:45.382017Z",
+  "generated_at": "2026-10-30T15:09:33.610517Z",
   "apps_count": 6,
   "apps": [
     {
@@ -19,7 +19,7 @@
       "file_size_formatted": "1.59 MB",
       "download_url": "https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk",
       "storage_type": "github_release",
-      "sha256": "b48d37bb44d2f5a13bc3200bbf01e181f29c72cc3eb33f84e54c21e1fa25ea9d",
+      "sha256": "384a04561b08fb17b1cf98f2f27028ce8d2f7aeea61d18cce85524e5f1b1f71f",
       "changelog": "• الإطلاق الرسمي لتطبيق MOMO store على الأندرويد\n• مدير تنزيلات مدمج للتطبيقات والـ APKs\n• دعم كامل للوضعين الفاتح والداكن\n• فاحص ذكي للتحديثات التلقائية والتحقق الأمني",
       "screenshots": [
         "./static/images/screenshots/dumu-screen-1.png",
@@ -62,7 +62,7 @@
           "version_name": "1.0.0",
           "apk_url": "https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk",
           "file_size": 1669691,
-          "sha256_hash": "b48d37bb44d2f5a13bc3200bbf01e181f29c72cc3eb33f84e54c21e1fa25ea9d",
+          "sha256_hash": "384a04561b08fb17b1cf98f2f27028ce8d2f7aeea61d18cce85524e5f1b1f71f",
           "min_sdk": 21,
           "target_sdk": 34,
           "changelog": "• النسخة الأصلية لمتجر MOMO store للهواتف الذكية\n• دعم التثبيت التلقائي وفحص الأمان والتحديثات التفاضلية",
