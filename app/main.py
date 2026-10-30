@@ -17,11 +17,13 @@ from .config import (
 from .database import (
     init_db, get_apps, get_app_by_id, get_app_by_package,
     create_app, update_app, delete_app, increment_download,
-    add_rating, get_stats, export_catalog_json
+    add_rating, get_stats, export_catalog_json,
+    create_order, get_orders, get_order_by_id, update_order_status
 )
 from .models import (
     AppCreate, AppUpdate, RateRequest, UpdateCheckRequest,
-    UpdateCheckResponse, AdminLoginRequest, AdminLoginResponse
+    UpdateCheckResponse, AdminLoginRequest, AdminLoginResponse,
+    OrderCreate, OrderStatusUpdate
 )
 from .seed_data import seed_database_if_empty
 
@@ -193,6 +195,36 @@ def delete_existing_app(app_id: str, authorized: bool = Depends(verify_admin_tok
     if not deleted:
         raise HTTPException(status_code=404, detail="التطبيق غير موجود")
     return {"status": "success", "message": "تم حذف التطبيق بنجاح"}
+
+# --- Orders & E-Commerce Routes ---
+
+@app.post("/api/orders", summary="إنشاء وتأكيد طلب جديد")
+def place_order(order_in: OrderCreate):
+    import random
+    order_id = f"MOMO-{random.randint(10000, 99999)}"
+    order_dict = order_in.model_dump()
+    order_dict["id"] = order_id
+    created = create_order(order_dict)
+    return {"status": "success", "order": created, "message": "تم استلام وتأكيد طلبك بنجاح!"}
+
+@app.get("/api/orders", summary="استعراض الطلبات المسجلة")
+def list_orders():
+    orders = get_orders()
+    return {"status": "success", "count": len(orders), "orders": orders}
+
+@app.get("/api/orders/{order_id}", summary="تتبع مسار طلب")
+def fetch_order(order_id: str):
+    order = get_order_by_id(order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="رقم الطلب غير موجود")
+    return {"status": "success", "order": order}
+
+@app.put("/api/orders/{order_id}/status", summary="تحديث حالة الطلب (لوحة التاجر)")
+def set_order_status(order_id: str, req: OrderStatusUpdate, authorized: bool = Depends(verify_admin_token)):
+    updated = update_order_status(order_id, req.status)
+    if not updated:
+        raise HTTPException(status_code=404, detail="الطلب غير موجود")
+    return {"status": "success", "order": updated, "message": f"تم تغيير حالة الطلب إلى {req.status}"}
 
 # --- Static Files & Web Interface ---
 

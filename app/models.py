@@ -1,28 +1,37 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
 class AppBase(BaseModel):
     id: str = Field(..., description="Unique slug or identifier, e.g. ai-assistant")
-    package_name: str = Field(..., description="Android package name, e.g. com.example.app")
-    name: str = Field(..., description="Display title of the application")
+    package_name: str = Field(..., description="Android package name or product SKU")
+    name: str = Field(..., description="Display title of the application or product")
     short_description: str = Field(..., description="One sentence summary")
     description: str = Field(..., description="Full description of features and usage")
-    category: str = Field(default="أدوات عامة", description="Category of the app")
-    icon_url: str = Field(default="/static/icons/default-app.svg")
-    version_name: str = Field(default="1.0.0", description="Semantic version string")
-    version_code: int = Field(default=1, description="Numeric version code for update checks")
-    min_android_version: str = Field(default="Android 8.0+", description="Minimum Android OS supported")
+    category: str = Field(default="برامج الهاتف", description="Category")
+    icon_url: str = Field(default="./static/icons/default-app.svg")
+    version_name: str = Field(default="1.0.0")
+    version_code: int = Field(default=1)
+    min_android_version: str = Field(default="Android 5.0+")
     file_size_bytes: int = Field(default=0)
     file_size_formatted: str = Field(default="0 MB")
-    download_url: str = Field(..., description="Direct download URL or /uploads/apks/ path")
-    storage_type: str = Field(default="github_release", description="github_release or local_server")
-    sha256: str = Field(..., description="SHA-256 cryptographic checksum")
-    changelog: str = Field(default="الإصدار الأولي للتطبيق", description="What's new in this version")
+    download_url: str = Field(default="#")
+    storage_type: str = Field(default="github_release")
+    sha256: str = Field(default="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+    changelog: str = Field(default="الإصدار الأولي للتطبيق")
     screenshots: List[str] = Field(default_factory=list)
-    developer: str = Field(default="فريق التطوير")
+    developer: str = Field(default="MOMO Team")
     github_repo: Optional[str] = None
     featured: bool = Field(default=False)
+    
+    # E-Commerce fields
+    item_type: str = Field(default="app", description="app or product")
+    price: float = Field(default=0.0)
+    old_price: float = Field(default=0.0)
+    discount_percent: int = Field(default=0)
+    colors: List[str] = Field(default_factory=list)
+    sizes: List[str] = Field(default_factory=list)
+    stock: int = Field(default=100)
 
 class AppCreate(AppBase):
     pass
@@ -46,13 +55,13 @@ class AppUpdate(BaseModel):
     developer: Optional[str] = None
     github_repo: Optional[str] = None
     featured: Optional[bool] = None
-
-class AppRecord(AppBase):
-    downloads_count: int = 0
-    rating: float = 5.0
-    rating_count: int = 1
-    created_at: str
-    updated_at: str
+    item_type: Optional[str] = None
+    price: Optional[float] = None
+    old_price: Optional[float] = None
+    discount_percent: Optional[int] = None
+    colors: Optional[List[str]] = None
+    sizes: Optional[List[str]] = None
+    stock: Optional[int] = None
 
 class RateRequest(BaseModel):
     rating: int = Field(..., ge=1, le=5)
@@ -78,3 +87,27 @@ class AdminLoginResponse(BaseModel):
     success: bool
     token: Optional[str] = None
     message: str
+
+# Order Models
+class OrderItem(BaseModel):
+    id: str
+    name: str
+    price: float
+    quantity: int = 1
+    selected_color: Optional[str] = None
+    selected_size: Optional[str] = None
+    icon_url: Optional[str] = None
+
+class OrderCreate(BaseModel):
+    customer_name: str
+    phone: str
+    address: str
+    city: str = "القاهرة"
+    items: List[OrderItem]
+    subtotal: float
+    discount: float = 0.0
+    total: float
+    payment_method: str = "vodafone_cash" # vodafone_cash, instapay, cod, card
+
+class OrderStatusUpdate(BaseModel):
+    status: str # pending, processing, shipped, delivered, cancelled

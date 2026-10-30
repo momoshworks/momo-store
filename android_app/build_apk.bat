@@ -11,6 +11,9 @@ if not exist "%ANDROID_JAR%" (
 
 mkdir gen 2>nul
 mkdir bin 2>nul
+mkdir out 2>nul
+del /q out\*.apk 2>nul
+del /q bin\*.apk 2>nul
 
 echo 1. Generating R.java...
 "%BUILD_TOOLS%\aapt.exe" package -f -m -J gen -M AndroidManifest.xml -S res -I "%ANDROID_JAR%"
@@ -22,12 +25,12 @@ echo 3. Converting to DEX with D8...
 call "%BUILD_TOOLS%\d8.bat" --release --min-api 21 --lib "%ANDROID_JAR%" --output bin bin\com\momo\store\*.class
 
 echo 4. Packaging APK...
-"%BUILD_TOOLS%\aapt.exe" package -f -M AndroidManifest.xml -S res -A assets -I "%ANDROID_JAR%" -F bin\momo-unaligned.apk bin
+"%BUILD_TOOLS%\aapt.exe" package -f -M AndroidManifest.xml -S res -A assets -I "%ANDROID_JAR%" -F out\momo-unaligned.apk bin
 
 echo 5. Zipaligning APK...
-"%BUILD_TOOLS%\zipalign.exe" -f -p 4 bin\momo-unaligned.apk bin\momo-aligned.apk
+"%BUILD_TOOLS%\zipalign.exe" -f -p 4 out\momo-unaligned.apk out\momo-aligned.apk
 
 echo 6. Signing APK...
-call "%BUILD_TOOLS%\apksigner.bat" sign --ks momo.keystore --ks-pass pass:momostore123 --out momo-store.apk bin\momo-aligned.apk
+call "%BUILD_TOOLS%\apksigner.bat" sign --ks momo.keystore --ks-pass pass:momostore123 --out momo-store.apk out\momo-aligned.apk
 
 echo APK Build complete: momo-store.apk

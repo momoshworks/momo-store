@@ -12,4 +12,5 @@ data/*.db-journal
 Thumbs.db
 android_app/bin/
 android_app/gen/
+android_app/out/
 *.idsig
