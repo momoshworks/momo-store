@@ -23,4 +23,4 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 ADMIN_SECRET_KEY = os.getenv("ADMIN_SECRET_KEY", "super-secret-appstore-jwt-key-2026")
 
 HOST = os.getenv("HOST", "0.0.0.0")
-PORT = int(os.getenv("PORT", "8000"))
+PORT = int(os.getenv("PORT", "8080"))
