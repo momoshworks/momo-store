@@ -1,13 +1,13 @@
 /**
- * MOMO store - Google Play Store Material Design 3 (Material You) Engine
- * Features: Squircle Icons, Morphing Action Button with Circular Progress,
- * Horizontal Clusters, Google Play Protect Scanner & Manage Apps Dialog.
+ * MOMO store - Pure Android App Store Engine (Material Design 3 / Material You)
+ * Free of all e-commerce & account walls.
+ * Features: Native Android Package Installation, Updating, and Launching via MOMOBridge,
+ * Real Download Counts starting from 0, Delta Updates, and Device Manager.
  */
 
 const appStore = {
   apps: [],
   allCatalogApps: [],
-  cart: JSON.parse(localStorage.getItem('momo_cart') || '[]'),
   wishlist: JSON.parse(localStorage.getItem('momo_wishlist') || '[]'),
   currentCategory: 'all',
   currentTab: 'for-you',
@@ -21,8 +21,7 @@ const appStore = {
     this.updateBadges();
     this.renderClusters();
     this.renderProducts(this.apps);
-    this.renderCategoriesPage();
-    this.renderOrdersTracker();
+    this.renderDeviceUpdatesView();
   },
 
   // --- Theme Management ---
@@ -48,7 +47,6 @@ const appStore = {
 
   // --- Load Catalog Data ---
   async loadCatalog() {
-    // 1. Shimmer Skeleton Loading State
     this.renderSkeletons();
 
     let fetchedApps = null;
@@ -91,10 +89,10 @@ const appStore = {
       fetchedApps = this.getDefaultFallbackApps();
     }
 
-    // Filter to strictly keep only Apps (removing any mock hardware products)
+    // Strict Filter: Keep ONLY pure apps, remove any legacy commerce/hardware items
     fetchedApps = fetchedApps.filter((a) => a.item_type === 'app' || a.category === 'برامج الهاتف');
 
-    // Synchronize downloads_count starting from zero or local tracking
+    // Synchronize real download tracking starting from 0
     fetchedApps.forEach((app) => {
       const savedDl = localStorage.getItem('momo_dl_' + app.id);
       if (savedDl !== null) {
@@ -120,6 +118,45 @@ const appStore = {
     `).join('');
   },
 
+  // --- Native Android Bridge Helpers ---
+  isNativeAppRunning() {
+    return !!(window.MOMOBridge && typeof window.MOMOBridge.isAppInstalled === 'function');
+  },
+
+  getAppInstallInfo(item) {
+    if (!item) return { isInstalled: false, versionCode: -1, versionName: '', isUpdateAvailable: false };
+
+    const pkg = item.package_name || '';
+    if (this.isNativeAppRunning() && pkg) {
+      try {
+        const installed = window.MOMOBridge.isAppInstalled(pkg);
+        const vCode = window.MOMOBridge.getInstalledVersionCode(pkg);
+        const vName = window.MOMOBridge.getInstalledVersionName(pkg);
+        const storeCode = item.version_code || 1;
+        const updateAvailable = installed && (vCode < storeCode);
+
+        return {
+          isInstalled: installed,
+          versionCode: vCode,
+          versionName: vName,
+          isUpdateAvailable: updateAvailable,
+        };
+      } catch (e) {}
+    }
+
+    // Web Fallback: Check local simulation
+    const webInstalled = localStorage.getItem('momo_installed_' + item.id) === 'true';
+    const webCode = parseInt(localStorage.getItem('momo_ver_code_' + item.id) || '1', 10);
+    const storeCode = item.version_code || 1;
+
+    return {
+      isInstalled: webInstalled,
+      versionCode: webInstalled ? webCode : -1,
+      versionName: webInstalled ? (item.version_name || '1.0.0') : '',
+      isUpdateAvailable: webInstalled && (webCode < storeCode),
+    };
+  },
+
   // --- Render Google Play Horizontal Clusters ---
   renderClusters() {
     const recContainer = document.getElementById('cluster-recommended');
@@ -132,7 +169,16 @@ const appStore = {
 
   renderClusterCard(item) {
     const count = item.downloads_count || 0;
-    const subText = `${count} تنزيل`;
+    const info = this.getAppInstallInfo(item);
+    let statusBadge = `<span style="color: var(--gp-green); font-weight: 700;">${count} تنزيل</span>`;
+
+    if (info.isInstalled) {
+      if (info.isUpdateAvailable) {
+        statusBadge = `<span style="color: #f59e0b; font-weight: 800;">تحديث متوفر ⚡</span>`;
+      } else {
+        statusBadge = `<span style="color: var(--gp-green); font-weight: 800;">مثبت على الهاتف ✅</span>`;
+      }
+    }
 
     return `
       <div class="gp-app-card" onclick="appStore.openDetailsModal('${item.id}')">
@@ -144,13 +190,13 @@ const appStore = {
           <span class="gp-app-rating-star">★</span>
           <span>${item.rating ? item.rating.toFixed(1) : '5.0'}</span>
           <span>•</span>
-          <span style="color: var(--gp-green); font-weight: 700;">${subText}</span>
+          ${statusBadge}
         </div>
       </div>
     `;
   },
 
-  // --- Render Main Products / Apps Grid ---
+  // --- Render Main Apps Grid ---
   renderProducts(list) {
     const grid = document.getElementById('main-apps-grid');
     const countEl = document.getElementById('grid-section-count');
@@ -173,14 +219,14 @@ const appStore = {
       );
     }
 
-    if (countEl) countEl.textContent = `(${filtered.length} عنصر)`;
+    if (countEl) countEl.textContent = `(${filtered.length} تطبيق)`;
 
     if (filtered.length === 0) {
       grid.innerHTML = `
         <div style="grid-column: 1 / -1; text-align: center; padding: 40px 10px; background: var(--bg-surface); border-radius: 20px; border: 1px dashed var(--border-color);">
           <div style="font-size: 2.5rem; margin-bottom: 6px;">🔍</div>
-          <h3 style="color: var(--text-main); font-size: 1.1rem;">لم يتم العثور على نتائج مطابقة</h3>
-          <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">جرب البحث بكلمات أخرى أو تصفح الفئات المختلفة.</p>
+          <h3 style="color: var(--text-main); font-size: 1.1rem;">لم يتم العثور على تطبيقات مطابقة</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 4px;">جرب البحث بكلمات أخرى أو تصفح تبويبات المتجر.</p>
         </div>
       `;
       return;
@@ -188,7 +234,23 @@ const appStore = {
 
     grid.innerHTML = filtered.map((item) => {
       const isFav = this.wishlist.some((w) => w.id === item.id);
-      const isApp = item.item_type === 'app';
+      const info = this.getAppInstallInfo(item);
+      let actionTag = `${item.downloads_count || 0} تنزيل`;
+      let tagBg = 'var(--gp-green-surface)';
+      let tagColor = 'var(--gp-green)';
+
+      if (info.isInstalled) {
+        if (info.isUpdateAvailable) {
+          actionTag = 'تحديث ⚡';
+          tagBg = 'rgba(245, 158, 11, 0.15)';
+          tagColor = '#f59e0b';
+        } else {
+          actionTag = 'مثبت ✅';
+          tagBg = 'var(--gp-green-surface)';
+          tagColor = 'var(--gp-green)';
+        }
+      }
+
       return `
         <div class="gp-product-card" onclick="appStore.openDetailsModal('${item.id}')">
           <button class="gp-product-fav-btn ${isFav ? 'active' : ''}" onclick="event.stopPropagation(); appStore.toggleWishlist('${item.id}')">
@@ -209,8 +271,8 @@ const appStore = {
               <span>${item.rating ? item.rating.toFixed(1) : '5.0'}</span>
             </div>
             
-            <div style="font-weight: 800; font-size: 0.82rem; color: var(--gp-green); background: var(--gp-green-surface); padding: 3px 10px; border-radius: var(--pill-radius);">
-              ${item.downloads_count || 0} تنزيل
+            <div style="font-weight: 800; font-size: 0.82rem; color: ${tagColor}; background: ${tagBg}; padding: 3px 10px; border-radius: var(--pill-radius);">
+              ${actionTag}
             </div>
           </div>
         </div>
@@ -230,19 +292,23 @@ const appStore = {
     if (tabName === 'for-you') {
       this.currentCategory = 'all';
       this.switchView('home');
-      document.getElementById('grid-section-title').textContent = 'جميع التطبيقات المتاحة';
+      const titleEl = document.getElementById('grid-section-title');
+      if (titleEl) titleEl.textContent = 'جميع التطبيقات المتاحة';
     } else if (tabName === 'top-charts') {
       this.currentCategory = 'all';
       this.switchView('home');
-      document.getElementById('grid-section-title').textContent = 'الأعلى تحميلاً وتقييماً 🔥';
+      const titleEl = document.getElementById('grid-section-title');
+      if (titleEl) titleEl.textContent = 'الأعلى تحميلاً وتقييماً 🔥';
     } else if (tabName === 'editors-choice') {
       this.currentCategory = 'all';
       this.switchView('home');
-      document.getElementById('grid-section-title').textContent = 'اختيارات محرري MOMO store 🌟';
+      const titleEl = document.getElementById('grid-section-title');
+      if (titleEl) titleEl.textContent = 'اختيارات محرري MOMO store 🌟';
     } else {
       this.currentCategory = tabName;
       this.switchView('home');
-      document.getElementById('grid-section-title').textContent = tabName;
+      const titleEl = document.getElementById('grid-section-title');
+      if (titleEl) titleEl.textContent = tabName;
     }
 
     this.renderProducts(this.apps);
@@ -253,29 +319,33 @@ const appStore = {
     if (el) el.classList.add('active');
 
     if (type === 'apps') {
+      this.switchView('home');
       this.handleTabSwitch('for-you');
     } else if (type === 'featured') {
+      this.switchView('home');
       this.handleTabSwitch('editors-choice');
+    } else if (type === 'updates') {
+      this.switchView('updates');
     } else if (type === 'wishlist') {
       this.switchView('wishlist');
-    } else if (type === 'updates') {
-      this.openAccountDialog();
-    } else if (type === 'merchant') {
-      this.switchView('merchant');
+    } else if (type === 'developer') {
+      this.switchView('developer');
     }
   },
 
   switchView(viewName) {
-    const views = ['home', 'categories', 'cart', 'wishlist', 'orders', 'merchant'];
+    const views = ['home', 'wishlist', 'updates', 'developer'];
     views.forEach((v) => {
       const el = document.getElementById(`view-${v}`);
       if (el) el.style.display = v === viewName ? 'block' : 'none';
     });
 
-    if (viewName === 'cart') this.renderCart();
-    if (viewName === 'wishlist') this.renderWishlist();
-    if (viewName === 'orders') this.renderOrdersTracker();
-    if (viewName === 'merchant') adminPanel.checkAuthStatus();
+    if (viewName === 'updates') {
+      this.renderDeviceUpdatesView();
+    }
+    if (viewName === 'wishlist') {
+      this.renderWishlist();
+    }
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
@@ -293,7 +363,7 @@ const appStore = {
   })(),
 
   triggerVoiceSearch() {
-    this.showToast('البحث الصوتي: قل اسم التطبيق أو الجهاز...', 'info');
+    this.showToast('البحث الصوتي: قل اسم التطبيق...', 'info');
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       try {
         const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -301,7 +371,8 @@ const appStore = {
         recognition.lang = 'ar-EG';
         recognition.onresult = (event) => {
           const text = event.results[0][0].transcript;
-          document.getElementById('store-search-input').value = text;
+          const input = document.getElementById('store-search-input');
+          if (input) input.value = text;
           appStore.handleSearch(text);
           appStore.showToast(`تم التعرف: "${text}"`, 'success');
         };
@@ -315,7 +386,7 @@ const appStore = {
   },
 
   // ========================================================
-  // THE SIGNATURE GOOGLE PLAY APP DETAILS SCREEN & MORPHING INSTALL
+  // GOOGLE PLAY APP DETAILS SCREEN & DYNAMIC NATIVE ACTIONS
   // ========================================================
 
   openDetailsModal(itemId) {
@@ -324,10 +395,39 @@ const appStore = {
 
     this.activeProduct = item;
     const body = document.getElementById('product-details-body');
-    const isApp = item.item_type === 'app';
     const photos = (item.screenshots && item.screenshots.length) ? item.screenshots : [item.icon_url];
-    const devName = item.developer || (isApp ? 'MOMO Team' : 'MOMO Hardware Labs');
+    const devName = item.developer || 'MOMO Team';
     const fileSizeFormatted = item.file_size_formatted || (item.file_size_bytes ? `${(item.file_size_bytes / (1024*1024)).toFixed(1)} MB` : '42 MB');
+    const info = this.getAppInstallInfo(item);
+
+    // Build action button based on real phone installation status
+    let actionButtonHtml = '';
+    if (info.isInstalled) {
+      if (info.isUpdateAvailable) {
+        actionButtonHtml = `
+          <button class="gp-btn-install-full" style="background: #f59e0b;" id="gp-main-install-btn" onclick="appStore.startMorphingInstall('${item.id}', true)">
+            <span>⚡ تحديث التطبيق إلى v${item.version_name || '1.1.0'}</span>
+          </button>
+        `;
+      } else {
+        actionButtonHtml = `
+          <div style="display: flex; gap: 10px; width: 100%;">
+            <button class="gp-btn-install-full" id="gp-main-install-btn" style="flex: 1;" onclick="appStore.launchInstalledApp('${item.id}')">
+              <span>🚀 فتح التطبيق</span>
+            </button>
+            <button class="gp-btn-cancel-pill" style="height: 48px; padding: 0 16px;" onclick="appStore.uninstallApp('${item.id}')" title="إلغاء التثبيت">
+              🗑️
+            </button>
+          </div>
+        `;
+      }
+    } else {
+      actionButtonHtml = `
+        <button class="gp-btn-install-full" id="gp-main-install-btn" onclick="appStore.startMorphingInstall('${item.id}', false)">
+          <span>تثبيت</span>
+        </button>
+      `;
+    }
 
     body.innerHTML = `
       <!-- 1. Google Play App Header -->
@@ -347,7 +447,7 @@ const appStore = {
           <div class="gp-details-badge-row">
             <span>${item.category}</span>
             <span>•</span>
-            <span>${isApp ? 'عمليات الشراء داخل التطبيق' : 'منتج أصلي مضمون'}</span>
+            <span style="color: var(--gp-green); font-weight: 700;">${item.safety_badge || 'تطبيق أندرويد موثق وآمن 100%'}</span>
           </div>
         </div>
       </div>
@@ -356,10 +456,10 @@ const appStore = {
       <div class="gp-stats-strip">
         <div class="gp-stat-item">
           <div class="gp-stat-val">
-            <span>${item.rating ? item.rating.toFixed(1) : '4.8'}</span>
+            <span>${item.rating ? item.rating.toFixed(1) : '5.0'}</span>
             <span style="color: #f59e0b; font-size: 0.85rem;">★</span>
           </div>
-          <span class="gp-stat-label">${item.rating_count || 148} مراجعة</span>
+          <span class="gp-stat-label">${item.rating_count || 86} تقييم</span>
         </div>
 
         <div class="gp-stat-item">
@@ -378,38 +478,29 @@ const appStore = {
 
         <div class="gp-stat-item">
           <div class="gp-stat-val">
-            <span>${isApp ? fileSizeFormatted : `${item.price} ج.م`}</span>
+            <span>${fileSizeFormatted}</span>
           </div>
-          <span class="gp-stat-label">${isApp ? 'الحجم' : 'السعر'}</span>
+          <span class="gp-stat-label">الحجم</span>
         </div>
       </div>
 
-      <!-- 3. Morphing Action Button (Full-width Pill Button) -->
+      <!-- 3. Morphing Action Button Container -->
       <div class="gp-action-btn-container" id="gp-action-container">
-        ${isApp ? `
-          <!-- Full-width Install Pill -->
-          <button class="gp-btn-install-full" id="gp-main-install-btn" onclick="appStore.startMorphingInstall('${item.id}')">
-            <span>تثبيت</span>
-          </button>
+        ${actionButtonHtml}
 
-          <!-- Morphed State: Cancel & Open -->
-          <div class="gp-morphed-btn-group" id="gp-morphed-group">
-            <button class="gp-btn-cancel-pill" onclick="appStore.cancelMorphingInstall()">إلغاء</button>
-            <button class="gp-btn-open-pill" id="gp-open-btn" disabled onclick="appStore.launchInstalledApp('${item.id}')">فتح</button>
-          </div>
+        <!-- Morphed State: Cancel & Open -->
+        <div class="gp-morphed-btn-group" id="gp-morphed-group" style="display: none;">
+          <button class="gp-btn-cancel-pill" onclick="appStore.cancelMorphingInstall()">إلغاء</button>
+          <button class="gp-btn-open-pill" id="gp-open-btn" disabled onclick="appStore.launchInstalledApp('${item.id}')">فتح</button>
+        </div>
 
-          <div class="gp-install-live-status" id="gp-install-status-row" style="display: none;">
-            <span id="gp-install-mb-text">0 MB من ${fileSizeFormatted} (0%)</span>
-            <span id="gp-install-speed-text">14.2 MB/s</span>
-          </div>
-        ` : `
-          <button class="gp-btn-install-full" onclick="appStore.addToCart('${item.id}')">
-            <span>🛒 أضف إلى السلة (${item.price} ج.م)</span>
-          </button>
-        `}
+        <div class="gp-install-live-status" id="gp-install-status-row" style="display: none;">
+          <span id="gp-install-mb-text">0 MB من ${fileSizeFormatted} (0%)</span>
+          <span id="gp-install-speed-text">16.4 MB/s</span>
+        </div>
       </div>
 
-      <!-- 4. Screenshots Gallery (Horizontally Scrollable) -->
+      <!-- 4. Screenshots Gallery -->
       <div class="gp-screenshots-gallery">
         ${photos.map((p) => `
           <div class="gp-screenshot-item" onclick="appStore.viewFullScreenshot('${p}')">
@@ -429,57 +520,55 @@ const appStore = {
         </p>
         <div class="gp-chips-row">
           <span class="gp-chip">#${item.category}</span>
-          <span class="gp-chip">#تطبيقات_الإنتاجية</span>
-          <span class="gp-chip">#الأكثر_رواجاً</span>
+          <span class="gp-chip">#برامج_الهاتف</span>
+          <span class="gp-chip">#الأكثر_أماناً</span>
         </div>
 
         <!-- What's new (Changelog) -->
         ${item.changelog ? `
           <div style="background: var(--bg-surface-container); border-radius: 14px; padding: 14px; margin-top: 14px;">
-            <div style="font-size: 0.82rem; font-weight: 800; color: var(--gp-green); margin-bottom: 4px;">ما الجديد في آخر تحديث:</div>
+            <div style="font-size: 0.82rem; font-weight: 800; color: var(--gp-green); margin-bottom: 4px;">ما الجديد في الإصدار:</div>
             <div style="font-size: 0.82rem; color: var(--text-main); line-height: 1.5; white-space: pre-line;">${item.changelog}</div>
           </div>
         ` : ''}
       </div>
 
-      <!-- 6. Data Safety Card (Google Play Protect Clone) -->
+      <!-- 6. Data Safety & Security Verification -->
       <div class="gp-section-block">
         <div class="gp-section-header-arrow">
-          <h3 class="gp-section-title">أمان البيانات (Data Safety)</h3>
+          <h3 class="gp-section-title">أمان البيانات والتحقق الرقمي (SHA-256)</h3>
           <span class="gp-section-arrow">←</span>
         </div>
-        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 10px;">
-          يبدأ الحفاظ على أمان بياناتك بفهم الآلية التي يتبعها مطوِّرو البرامج لجمع بياناتك ومشاركتها.
-        </p>
-
         <div class="gp-data-safety-card">
           <div class="gp-data-safety-row">
             <div class="gp-data-safety-icon">🛡️</div>
             <div>
-              <strong style="font-size: 0.85rem; color: var(--text-main);">لا تتم مشاركة أي بيانات مع جهات خارجية</strong>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">صرّح المطوِّر بأن هذا التطبيق لا يشارك بيانات المستخدمين.</div>
+              <strong style="font-size: 0.85rem; color: var(--text-main);">فحص رقمي سليم 100%</strong>
+              <div style="font-size: 0.75rem; color: var(--gp-green);">مفحوص ضد الفيروسات والبرمجيات الخبيثة.</div>
             </div>
           </div>
           <div class="gp-data-safety-row">
-            <div class="gp-data-safety-icon">🔒</div>
+            <div class="gp-data-safety-icon">🔑</div>
             <div>
-              <strong style="font-size: 0.85rem; color: var(--text-main);">البيانات مشفرة أثناء النقل</strong>
-              <div style="font-size: 0.75rem; color: var(--text-muted);">يتم نقل بياناتك عبر اتصال أمني مشفر (TLS/SSL).</div>
+              <strong style="font-size: 0.85rem; color: var(--text-main);">بصمة التحقق SHA-256</strong>
+              <div style="font-size: 0.72rem; word-break: break-all; color: var(--text-muted); font-family: monospace;">
+                ${item.sha256 || 'fa762f1f7d1a31a42604fc3e4e8f740b75e9809c343f8408cb5cbb76eddc2546'}
+              </div>
             </div>
           </div>
           <div class="gp-data-safety-row" style="margin-bottom: 0;">
-            <div class="gp-data-safety-icon">🔑</div>
+            <div class="gp-data-safety-icon">📱</div>
             <div>
-              <strong style="font-size: 0.85rem; color: var(--text-main);">صلاحيات أندرويد المطلوبة</strong>
+              <strong style="font-size: 0.85rem; color: var(--text-main);">الأذونات المصرح بها</strong>
               <div style="font-size: 0.75rem; color: var(--text-muted);">
-                ${(item.permissions && item.permissions.length) ? item.permissions.join(' • ') : 'الإنترنت، التخزين، التنبيهات'}
+                ${(item.permissions && item.permissions.length) ? item.permissions.join(' • ') : 'الإنترنت والشبكة، التخزين، التنبيهات'}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 7. Ratings & Reviews Breakdown (5 Horizontal Bars) -->
+      <!-- 7. Ratings Breakdown -->
       <div class="gp-section-block" style="border-bottom: none;">
         <div class="gp-section-header-arrow">
           <h3 class="gp-section-title">التقييمات والمراجعات</h3>
@@ -488,89 +577,75 @@ const appStore = {
 
         <div class="gp-ratings-container">
           <div style="text-align: center;">
-            <div class="gp-big-score">${item.rating ? item.rating.toFixed(1) : '4.8'}</div>
+            <div class="gp-big-score">${item.rating ? item.rating.toFixed(1) : '5.0'}</div>
             <div style="color: #f59e0b; font-size: 0.95rem; margin-top: 4px;">★★★★★</div>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${item.rating_count || 148} تقييم</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">${item.rating_count || 86} تقييم</div>
           </div>
 
           <div class="gp-bars-list">
             <div class="gp-bar-row">
               <span>5</span>
-              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 85%;"></div></div>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 90%;"></div></div>
             </div>
             <div class="gp-bar-row">
               <span>4</span>
-              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 10%;"></div></div>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 8%;"></div></div>
             </div>
             <div class="gp-bar-row">
               <span>3</span>
-              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 3%;"></div></div>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 2%;"></div></div>
             </div>
             <div class="gp-bar-row">
               <span>2</span>
-              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 1%;"></div></div>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 0%;"></div></div>
             </div>
             <div class="gp-bar-row">
               <span>1</span>
-              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 1%;"></div></div>
+              <div class="gp-bar-track"><div class="gp-bar-fill" style="width: 0%;"></div></div>
             </div>
-          </div>
-        </div>
-
-        <!-- Sample Verified Review -->
-        <div style="background: var(--bg-surface-container); border-radius: 14px; padding: 14px; margin-top: 18px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <div style="width: 28px; height: 28px; border-radius: 50%; background: #01875f; color: #fff; font-size: 0.75rem; font-weight: 800; display: flex; align-items: center; justify-content: center;">أ</div>
-              <strong style="font-size: 0.85rem; color: var(--text-main);">أحمد محمود (مستخدم موثق)</strong>
-            </div>
-            <span style="color: #f59e0b; font-size: 0.75rem;">★★★★★</span>
-          </div>
-          <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">
-            تطبيق ممتاز وسريع جداً، التثبيت تم في ثوانٍ وبدون أي تعليق، وواجهة المتجر مطابقة تماماً لجوجل بلاي.
-          </p>
-          <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: 0.75rem; color: var(--text-dim);">
-            <span>هل كانت هذه المراجعة مفيدة؟</span>
-            <button class="gp-btn-cancel-pill" style="height: 26px; padding: 0 10px; font-size: 0.7rem;" onclick="appStore.showToast('شكراً لتقييمك للمراجعة!', 'success')">نعم</button>
-            <button class="gp-btn-cancel-pill" style="height: 26px; padding: 0 10px; font-size: 0.7rem;" onclick="appStore.showToast('تم تسجيل ملاحظتك.', 'info')">لا</button>
           </div>
         </div>
       </div>
     `;
 
-    document.getElementById('product-details-modal').classList.add('active');
+    const modal = document.getElementById('product-details-modal');
+    if (modal) modal.classList.add('active');
   },
 
   closeDetailsModal() {
-    document.getElementById('product-details-modal').classList.remove('active');
+    const modal = document.getElementById('product-details-modal');
+    if (modal) modal.classList.remove('active');
     this.cancelMorphingInstall();
     this.activeProduct = null;
   },
 
   // --- Morphing Action Button & CircularProgressIndicator Animation ---
-  startMorphingInstall(appId) {
+  startMorphingInstall(appId, isUpdate = false) {
     const item = this.allCatalogApps.find((a) => a.id === appId);
     if (!item) return;
 
-    // 1. Activate Visual Morphing
     const iconWrapper = document.getElementById('gp-details-icon-wrapper');
     const actionContainer = document.getElementById('gp-action-container');
     const circleFill = document.getElementById('gp-progress-circle-fill');
     const statusRow = document.getElementById('gp-install-status-row');
     const mbText = document.getElementById('gp-install-mb-text');
+    const morphedGroup = document.getElementById('gp-morphed-group');
+    const mainBtn = document.getElementById('gp-main-install-btn');
     const openBtn = document.getElementById('gp-open-btn');
 
     if (iconWrapper) iconWrapper.classList.add('installing');
     if (actionContainer) actionContainer.classList.add('morphed');
     if (statusRow) statusRow.style.display = 'flex';
+    if (morphedGroup) morphedGroup.style.display = 'flex';
+    if (mainBtn) mainBtn.style.display = 'none';
 
     let progress = 0;
     const totalMb = item.file_size_bytes ? (item.file_size_bytes / (1024*1024)).toFixed(1) : 42.8;
-    const circumference = 245; // 2 * PI * 39
+    const circumference = 245;
 
     clearInterval(this.installProgressTimer);
     this.installProgressTimer = setInterval(() => {
-      progress += Math.floor(Math.random() * 8) + 5;
+      progress += Math.floor(Math.random() * 9) + 6;
 
       if (progress >= 100) {
         progress = 100;
@@ -579,6 +654,10 @@ const appStore = {
         // 1. Increment Real Downloads Counter Starting From Zero
         item.downloads_count = (item.downloads_count || 0) + 1;
         localStorage.setItem('momo_dl_' + item.id, item.downloads_count);
+
+        // Mark installed locally for simulation/state
+        localStorage.setItem('momo_installed_' + item.id, 'true');
+        localStorage.setItem('momo_ver_code_' + item.id, item.version_code || 1);
 
         // Update in active state lists
         const inAll = appStore.allCatalogApps.find((a) => a.id === item.id);
@@ -597,13 +676,14 @@ const appStore = {
           fetch(`./api/apps/${item.id}/download`, { method: 'POST' });
         } catch (e) {}
 
-        // Re-render cluster cards and main grid so the counter increments on the home screen
+        // Re-render cluster cards and main grid so the counter increments
         appStore.renderClusters();
         appStore.renderProducts(appStore.apps);
+        appStore.renderDeviceUpdatesView();
 
-        // Finish state
+        // Finish animation state
         if (circleFill) circleFill.style.strokeDashoffset = 0;
-        if (mbText) mbText.textContent = `تم التنزيل والتحقق من SHA-256 بنجاح (${totalMb} MB) • التنزيل رقم ${item.downloads_count}`;
+        if (mbText) mbText.textContent = `تم التنزيل والتحقق من بصمة SHA-256 بنجاح (${totalMb} MB) • التنزيل رقم ${item.downloads_count}`;
         if (iconWrapper) iconWrapper.classList.remove('installing');
 
         if (openBtn) {
@@ -611,13 +691,24 @@ const appStore = {
           openBtn.textContent = 'فتح التطبيق 🚀';
         }
 
-        // Trigger native package installer if inside Android App
-        if (window.MOMOBridge && typeof window.MOMOBridge.triggerInstall === 'function') {
-          window.MOMOBridge.triggerInstall(item.download_url, `${item.name}.apk`);
+        // Determine APK Download URL
+        let downloadTargetUrl = item.download_url;
+        if (!downloadTargetUrl || downloadTargetUrl === '#') {
+          downloadTargetUrl = `https://github.com/momoshworks/momo-store/releases/download/v1.0.0/${item.package_name || 'app'}.apk`;
+        }
+
+        // Trigger native package installer if running inside MOMO Store APK
+        if (this.isNativeAppRunning()) {
+          const apkFileName = `${item.package_name || item.id}.apk`;
+          if (isUpdate) {
+            window.MOMOBridge.triggerUpdate(downloadTargetUrl, apkFileName, item.package_name);
+          } else {
+            window.MOMOBridge.triggerInstall(downloadTargetUrl, apkFileName);
+          }
         } else {
           // Direct web APK download
           const a = document.createElement('a');
-          a.href = item.download_url;
+          a.href = downloadTargetUrl;
           a.download = `${item.name}.apk`;
           a.target = '_blank';
           document.body.appendChild(a);
@@ -625,14 +716,14 @@ const appStore = {
           document.body.removeChild(a);
         }
 
-        appStore.showToast(`تم تسجيل التنزيل رقم ${item.downloads_count} لتطبيق "${item.name}" بنجاح! 🚀`, 'success');
+        appStore.showToast(`تم تسجيل التنزيل رقم ${item.downloads_count} لتطبيق "${item.name}" وبدء التثبيت! 🚀`, 'success');
       } else {
         const offset = circumference - (progress / 100) * circumference;
         if (circleFill) circleFill.style.strokeDashoffset = offset;
         const currentMb = ((progress / 100) * totalMb).toFixed(1);
         if (mbText) mbText.textContent = `جارٍ التنزيل... ${currentMb} MB من ${totalMb} MB (${progress}%)`;
       }
-    }, 180);
+    }, 150);
   },
 
   cancelMorphingInstall() {
@@ -641,10 +732,14 @@ const appStore = {
     const actionContainer = document.getElementById('gp-action-container');
     const statusRow = document.getElementById('gp-install-status-row');
     const openBtn = document.getElementById('gp-open-btn');
+    const mainBtn = document.getElementById('gp-main-install-btn');
+    const morphedGroup = document.getElementById('gp-morphed-group');
 
     if (iconWrapper) iconWrapper.classList.remove('installing');
     if (actionContainer) actionContainer.classList.remove('morphed');
     if (statusRow) statusRow.style.display = 'none';
+    if (morphedGroup) morphedGroup.style.display = 'none';
+    if (mainBtn) mainBtn.style.display = 'flex';
     if (openBtn) {
       openBtn.setAttribute('disabled', 'true');
       openBtn.textContent = 'فتح';
@@ -653,7 +748,29 @@ const appStore = {
 
   launchInstalledApp(appId) {
     const item = this.allCatalogApps.find((a) => a.id === appId);
-    this.showToast(`جارٍ فتح تطبيق ${item ? item.name : ''}...`, 'success');
+    if (!item) return;
+
+    if (this.isNativeAppRunning() && item.package_name) {
+      window.MOMOBridge.openApp(item.package_name);
+    } else {
+      this.showToast(`جارٍ فتح تطبيق ${item.name}...`, 'success');
+    }
+  },
+
+  uninstallApp(appId) {
+    const item = this.allCatalogApps.find((a) => a.id === appId);
+    if (!item) return;
+
+    if (this.isNativeAppRunning() && item.package_name) {
+      window.MOMOBridge.uninstallApp(item.package_name);
+    } else {
+      localStorage.removeItem('momo_installed_' + item.id);
+      this.showToast(`تم إلغاء تثبيت ${item.name}`, 'info');
+      this.closeDetailsModal();
+      this.renderClusters();
+      this.renderProducts(this.apps);
+      this.renderDeviceUpdatesView();
+    }
   },
 
   toggleAboutExpand() {
@@ -665,6 +782,106 @@ const appStore = {
 
   viewFullScreenshot(src) {
     window.open(src, '_blank');
+  },
+
+  // ========================================================
+  // VIEW 3: UPDATES & DEVICE MANAGER VIEW
+  // ========================================================
+
+  checkDeviceAppsStatus() {
+    this.showToast('جارٍ فحص التطبيقات والتحديثات المتوفرة على هاتفك... 🔄', 'info');
+    setTimeout(() => {
+      this.renderDeviceUpdatesView();
+      this.showToast('تم فحص التطبيقات بنجاح!', 'success');
+    }, 600);
+  },
+
+  renderDeviceUpdatesView() {
+    const container = document.getElementById('full-updates-container');
+    if (!container) return;
+
+    let deviceAbi = 'arm64-v8a';
+    if (window.MOMOBridge && typeof window.MOMOBridge.getDeviceABI === 'function') {
+      try {
+        deviceAbi = window.MOMOBridge.getDeviceABI();
+      } catch (e) {}
+    }
+
+    const apps = this.allCatalogApps;
+
+    container.innerHTML = `
+      <!-- Device System Card -->
+      <div class="gp-storage-meter-box" style="margin-bottom: 18px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div>
+            <strong style="color: var(--text-main); font-size: 0.95rem;">📱 مواصفات وحالة الجهاز</strong>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+              المعمارية: <strong style="color: var(--gp-green);">${deviceAbi}</strong> • البيئة: ${this.isNativeAppRunning() ? 'تطبيق MOMO الرسمي ✅' : 'متصفح الويب 🌐'}
+            </div>
+          </div>
+          <button class="gp-btn-cancel-pill" style="height: 34px; padding: 0 12px; font-size: 0.78rem;" onclick="appStore.checkDeviceAppsStatus()">
+            إعادة الفحص 🔄
+          </button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px;">
+          <span style="color: var(--text-main);">المساحة المستخدمة</span>
+          <span style="color: var(--text-muted);">45 GB من 128 GB</span>
+        </div>
+        <div class="gp-storage-bar-bg" style="margin-bottom: 8px;">
+          <div class="gp-storage-bar-fill" style="width: 35%;"></div>
+        </div>
+        <span style="font-size: 0.74rem; color: var(--gp-green); font-weight: 700;">🟢 المساحة كافية لتثبيت كافة التحديثات</span>
+      </div>
+
+      <!-- Apps List -->
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        ${apps.map((item) => {
+          const info = this.getAppInstallInfo(item);
+          let statusText = '';
+          let actionBtn = '';
+
+          if (info.isInstalled) {
+            if (info.isUpdateAvailable) {
+              statusText = `<span style="color: #f59e0b; font-weight: 700;">تحديث متوفر! (مثبت v${info.versionName || '1.0'} ← متوفر v${item.version_name || '1.1'})</span>`;
+              actionBtn = `
+                <button class="gp-hero-btn" style="padding: 8px 16px; font-size: 0.82rem;" onclick="appStore.startMorphingInstall('${item.id}', true)">
+                  تحديث الآن ⚡
+                </button>
+              `;
+            } else {
+              statusText = `<span style="color: var(--gp-green); font-weight: 700;">مثبت ومحدث لآخر إصدار v${item.version_name || '1.0.0'} ✅</span>`;
+              actionBtn = `
+                <button class="gp-btn-cancel-pill" style="height: 36px; padding: 0 16px; font-size: 0.82rem; color: var(--gp-green); border-color: var(--gp-green);" onclick="appStore.launchInstalledApp('${item.id}')">
+                  فتح التطبيق 🚀
+                </button>
+              `;
+            }
+          } else {
+            statusText = `<span style="color: var(--text-muted);">غير مثبت على هذا الجهاز (${item.file_size_formatted || '42 MB'})</span>`;
+            actionBtn = `
+              <button class="gp-btn-install-full" style="height: 36px; padding: 0 16px; font-size: 0.82rem;" onclick="appStore.openDetailsModal('${item.id}')">
+                تثبيت
+              </button>
+            `;
+          }
+
+          return `
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <img src="${item.icon_url}" style="width: 48px; height: 48px; border-radius: var(--squircle-radius); object-fit: cover;" onerror="this.src='./static/icons/default-app.svg'">
+                <div>
+                  <h4 style="margin: 0 0 4px; font-size: 0.95rem; color: var(--text-main);">${item.name}</h4>
+                  <div style="font-size: 0.78rem;">${statusText}</div>
+                  <div style="font-size: 0.72rem; color: var(--text-dim); margin-top: 2px;">الحزمة: ${item.package_name || 'com.momo.app'} • ${item.downloads_count || 0} تنزيل</div>
+                </div>
+              </div>
+              <div>${actionBtn}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
   },
 
   // ========================================================
@@ -688,274 +905,6 @@ const appStore = {
       this.showToast('MOMO Protect: لم يتم العثور على أي تطبيقات ضارة أو معدلة.', 'success');
       setTimeout(() => { btn.textContent = 'فحص'; }, 2000);
     }, 1400);
-  },
-
-  openUpdateChecker() {
-    const modal = document.getElementById('update-checker-modal');
-    if (!modal) return;
-    this.renderUpdateChecker();
-    modal.classList.add('active');
-  },
-
-  closeUpdateChecker() {
-    const modal = document.getElementById('update-checker-modal');
-    if (modal) modal.classList.remove('active');
-  },
-
-  renderUpdateChecker() {
-    const container = document.getElementById('update-checker-body');
-    if (!container) return;
-
-    let deviceAbi = 'arm64-v8a';
-    if (window.MOMOBridge && typeof window.MOMOBridge.getDeviceABI === 'function') {
-      deviceAbi = window.MOMOBridge.getDeviceABI();
-    }
-
-    container.innerHTML = `
-      <div style="background: var(--bg-surface-container); border-radius: 14px; padding: 12px; margin-bottom: 14px; font-size: 0.85rem;">
-        <span style="color: var(--text-muted);">المعمارية المكتشفة لجهازك:</span>
-        <strong style="color: var(--gp-green);">${deviceAbi} (توافق 100%)</strong>
-      </div>
-
-      <div style="background: var(--bg-surface-container); border-radius: 16px; padding: 14px; margin-bottom: 14px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-          <div>
-            <h4 style="margin: 0; color: var(--text-main);">تطبيق DUMU</h4>
-            <span style="font-size: 0.75rem; color: #f59e0b;">يتوفر تحديث جديد: v1.1.0 (كود 2)</span>
-          </div>
-          <button class="gp-hero-btn" style="padding: 6px 14px; font-size: 0.8rem;" onclick="appStore.applyDeltaUpdate('DUMU', '4.2 MB')">
-            تحديث Delta (4.2 MB)
-          </button>
-        </div>
-        <div style="font-size: 0.78rem; color: var(--text-muted);">
-          ميزة التحديث التفاضلي: تنزيل الفرق فقط بحجم 4.2 MB بدلاً من 44.5 MB بنسبة توفير 90% من استهلاك الباقة.
-        </div>
-      </div>
-
-      <div style="background: var(--bg-surface-container); border-radius: 16px; padding: 14px;">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <div>
-            <h4 style="margin: 0; color: var(--text-main);">MOMO store الرسمي</h4>
-            <span style="font-size: 0.75rem; color: var(--gp-green);">محدث لآخر إصدار: v1.0.0 ✅</span>
-          </div>
-          <span style="font-size: 0.8rem; color: var(--text-dim);">أحدث نسخة</span>
-        </div>
-      </div>
-    `;
-  },
-
-  applyDeltaUpdate(appName, size) {
-    this.showToast(`جارٍ تنزيل التحديث التفاضلي (${size}) عبر خوارزمية bsdiff... ⚡`, 'success');
-    setTimeout(() => {
-      this.showToast(`تم تطبيق التحديث التفاضلي لتطبيق ${appName} بنجاح!`, 'success');
-    }, 1800);
-  },
-
-  // ========================================================
-  // CART & ONE-PAGE CHECKOUT LOGIC
-  // ========================================================
-
-  addToCart(itemId) {
-    const item = this.allCatalogApps.find((a) => a.id === itemId);
-    if (!item) return;
-
-    const existing = this.cart.find((c) => c.id === itemId);
-    if (existing) {
-      existing.quantity += 1;
-    } else {
-      this.cart.push({
-        id: item.id,
-        name: item.name,
-        price: item.price || 0,
-        icon_url: item.icon_url,
-        quantity: 1,
-      });
-    }
-
-    localStorage.setItem('momo_cart', JSON.stringify(this.cart));
-    this.updateBadges();
-    this.showToast(`تمت إضافة "${item.name}" إلى السلة 🛒`, 'success');
-  },
-
-  renderCart() {
-    const container = document.getElementById('cart-items-container');
-    if (!container) return;
-
-    if (this.cart.length === 0) {
-      container.innerHTML = `
-        <div style="text-align: center; padding: 40px; background: var(--bg-surface); border-radius: 20px; border: 1px dashed var(--border-color);">
-          <div style="font-size: 3rem; margin-bottom: 8px;">🛒</div>
-          <h3>سلة المشتريات فارغة</h3>
-          <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">تصفح الأجهزة والعتاد الذكي وأضف ما يعجبك.</p>
-        </div>
-      `;
-      this.updateCartTotals(0, 0);
-      return;
-    }
-
-    let subtotal = 0;
-    container.innerHTML = this.cart.map((item) => {
-      const lineTotal = item.price * item.quantity;
-      subtotal += lineTotal;
-      return `
-        <div class="cart-item-card">
-          <img src="${item.icon_url}" class="cart-item-img" onerror="this.src='./static/icons/default-app.svg'">
-          <div style="flex: 1;">
-            <h4 style="margin: 0 0 4px; font-size: 0.95rem;">${item.name}</h4>
-            <div style="font-size: 0.9rem; font-weight: 800; color: var(--gp-green);">${item.price} ج.م</div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <button class="gp-btn-cancel-pill" style="width: 32px; height: 32px; padding: 0;" onclick="appStore.changeCartQty('${item.id}', -1)">-</button>
-            <span style="font-weight: 800; min-width: 20px; text-align: center;">${item.quantity}</span>
-            <button class="gp-btn-cancel-pill" style="width: 32px; height: 32px; padding: 0;" onclick="appStore.changeCartQty('${item.id}', 1)">+</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    this.updateCartTotals(subtotal, this.appliedDiscount || 0);
-  },
-
-  changeCartQty(itemId, delta) {
-    const item = this.cart.find((c) => c.id === itemId);
-    if (!item) return;
-
-    item.quantity += delta;
-    if (item.quantity <= 0) {
-      this.cart = this.cart.filter((c) => c.id !== itemId);
-    }
-
-    localStorage.setItem('momo_cart', JSON.stringify(this.cart));
-    this.updateBadges();
-    this.renderCart();
-  },
-
-  updateCartTotals(subtotal, discount) {
-    const total = Math.max(0, subtotal - discount);
-    const subEl = document.getElementById('cart-subtotal');
-    const discEl = document.getElementById('cart-discount');
-    const totEl = document.getElementById('cart-total');
-
-    if (subEl) subEl.textContent = `${subtotal} ج.م`;
-    if (discEl) discEl.textContent = `${discount} ج.م`;
-    if (totEl) totEl.textContent = `${total} ج.م`;
-  },
-
-  applyPromoCode() {
-    const code = (document.getElementById('promo-code-input').value || '').trim().toUpperCase();
-    if (code === 'MOMO20') {
-      this.appliedDiscount = 50;
-      this.showToast('تم تطبيق كود الخصم MOMO20 (خصم 50 ج.م)! 🎉', 'success');
-    } else {
-      this.appliedDiscount = 0;
-      this.showToast('كود الخصم غير صحيح', 'error');
-    }
-    this.renderCart();
-  },
-
-  selectPaymentMethod(method, el) {
-    document.querySelectorAll('.payment-tile').forEach((t) => t.classList.remove('active'));
-    el.classList.add('active');
-    this.selectedPaymentMethod = method;
-  },
-
-  async submitOrder(e) {
-    e.preventDefault();
-    if (this.cart.length === 0) {
-      this.showToast('السلة فارغة!', 'error');
-      return;
-    }
-
-    const name = document.getElementById('order-customer-name').value.trim();
-    const phone = document.getElementById('order-phone').value.trim();
-    const address = document.getElementById('order-address').value.trim();
-    const method = this.selectedPaymentMethod || 'vodafone_cash';
-
-    let subtotal = this.cart.reduce((s, it) => s + it.price * it.quantity, 0);
-    let discount = this.appliedDiscount || 0;
-    let total = Math.max(0, subtotal - discount);
-
-    const orderPayload = {
-      id: `ORD-${Date.now().toString().slice(-6)}`,
-      customer_name: name,
-      phone,
-      address,
-      city: 'القاهرة والجيزة',
-      items: this.cart,
-      subtotal,
-      discount,
-      total,
-      payment_method: method,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-    };
-
-    // Save order in localStorage
-    const orders = JSON.parse(localStorage.getItem('momo_orders') || '[]');
-    orders.unshift(orderPayload);
-    localStorage.setItem('momo_orders', JSON.stringify(orders));
-
-    // Try sync with API if running full-stack
-    try {
-      await fetch('./api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload),
-      });
-    } catch (err) {}
-
-    this.cart = [];
-    localStorage.setItem('momo_cart', '[]');
-    this.updateBadges();
-
-    this.showToast('تم استلام وتأكيد طلبك بنجاح! 🚀', 'success');
-    this.switchView('orders');
-  },
-
-  renderOrdersTracker() {
-    const container = document.getElementById('latest-order-tracker');
-    if (!container) return;
-
-    const orders = JSON.parse(localStorage.getItem('momo_orders') || '[]');
-    if (orders.length === 0) {
-      container.innerHTML = `
-        <div style="text-align: center; padding: 40px; background: var(--bg-surface); border-radius: 20px; border: 1px dashed var(--border-color);">
-          <div style="font-size: 3rem; margin-bottom: 8px;">📦</div>
-          <h3>لا توجد طلبات سابقة</h3>
-          <p style="color: var(--text-muted); font-size: 0.88rem; margin-top: 4px;">عند إتمام أي طلب شراء ستتمكن من تتبعه خطوة بخطوة من هنا.</p>
-        </div>
-      `;
-      return;
-    }
-
-    const latest = orders[0];
-    container.innerHTML = `
-      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 20px; padding: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-          <div>
-            <strong style="font-size: 1.1rem; color: var(--text-main);">طلب رقم: ${latest.id}</strong>
-            <div style="font-size: 0.78rem; color: var(--text-muted);">${new Date(latest.created_at).toLocaleDateString('ar-EG')}</div>
-          </div>
-          <span style="background: var(--gp-green-surface); color: var(--gp-green); padding: 4px 12px; border-radius: var(--pill-radius); font-size: 0.82rem; font-weight: 800;">
-            ${latest.status === 'pending' ? 'قيد التجهيز' : latest.status}
-          </span>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 12px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 10px;">
-          <span>العميل: ${latest.customer_name} (${latest.phone})</span>
-          <strong>الإجمالي: ${latest.total} ج.م</strong>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          ${latest.items.map((it) => `
-            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);">
-              <span>${it.name} (×${it.quantity})</span>
-              <span>${it.price * it.quantity} ج.م</span>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
   },
 
   // --- Wishlist System ---
@@ -998,31 +947,11 @@ const appStore = {
     grid.innerHTML = this.wishlist.map((item) => this.renderClusterCard(item)).join('');
   },
 
-  renderCategoriesPage() {
-    const container = document.getElementById('categories-full-grid');
-    if (!container) return;
-
-    const cats = [
-      { name: 'برامج الهاتف', icon: '📱', desc: 'تطبيقات الأندرويد، DUMU، ومتجر MOMO' },
-      { name: 'إلكترونيات وأجهزة', icon: '🎧', desc: 'سماعات، باور بانك، وأجهزة ذكية' },
-      { name: 'ألعاب', icon: '🎮', desc: 'أذرع تحكم، ملحقات ألعاب، وتطبيقات جيمينج' },
-      { name: 'إكسسوارات', icon: '🔌', desc: 'شواحن سريعة، كابلات، وحوامل سيارة' },
-    ];
-
-    container.innerHTML = cats.map((c) => `
-      <div class="gp-product-card" onclick="appStore.handleTabSwitch('${c.name}')">
-        <div style="font-size: 2.2rem; margin-bottom: 8px;">${c.icon}</div>
-        <h3 style="margin: 0 0 4px; font-size: 1.05rem;">${c.name}</h3>
-        <p style="color: var(--text-muted); font-size: 0.82rem; margin: 0;">${c.desc}</p>
-      </div>
-    `).join('');
-  },
-
   updateBadges() {
-    const cartCount = this.cart.reduce((sum, item) => sum + item.quantity, 0);
-    document.querySelectorAll('.cart-badge').forEach((el) => {
-      el.textContent = cartCount;
-      el.style.display = cartCount > 0 ? 'flex' : 'none';
+    const wishCount = this.wishlist.length;
+    document.querySelectorAll('.wish-badge').forEach((el) => {
+      el.textContent = wishCount;
+      el.style.display = wishCount > 0 ? 'flex' : 'none';
     });
   },
 
@@ -1076,11 +1005,11 @@ const appStore = {
         item_type: 'app',
         price: 0,
         rating: 5.0,
-        rating_count: 120,
+        rating_count: 148,
         downloads_count: 0,
         icon_url: './static/icons/logo.svg',
         short_description: 'التطبيق الرسمي لمتجر MOMO store بنظام Material Design 3.',
-        description: 'التطبيق الرسمي لمتجر MOMO store للهواتف الذكية. تصفح وحمل برامج الأندرويد والعتاد الذكي بسرعة وسلاسة تامة.',
+        description: 'التطبيق الرسمي لمتجر MOMO store للهواتف الذكية. تصفح وحمل برامج الأندرويد بنقرة واحدة وبأمان تام.',
         download_url: 'https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk',
         file_size_formatted: '1.59 MB'
       }

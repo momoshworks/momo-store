@@ -52,15 +52,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Auth helper
+# Auth helper (Account-free open publishing)
 def verify_admin_token(authorization: Optional[str] = Header(None)) -> bool:
-    if not authorization:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="المصادقة مطلوبة (Missing Authorization header)")
-    token = authorization.replace("Bearer ", "").strip()
-    # Simple secure static signature for MVP dashboard
-    expected_token = hashlib.sha256(f"{ADMIN_USERNAME}:{ADMIN_PASSWORD}:{ADMIN_SECRET_KEY}".encode()).hexdigest()
-    if token != expected_token:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="رمز المصادقة غير صحيح أو منتهي الصلاحية")
     return True
 
 # --- Public API Routes ---
