@@ -1,0 +1,19 @@
+{
+  "name": "MOMO store | متجر مومو للتطبيقات",
+  "short_name": "MOMO store",
+  "description": "متجر MOMO store الرسمي لتحميل برامج وتطبيقات الهاتف الذكية وتطبيق DUMU بروابط مباشرة وسريعة",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#8b5cf6",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "./static/icons/logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOMO store | متجر التطبيقات وبرامج الهاتف</title>
+  <meta name="description" content="متجر MOMO store الرسمي لتحميل برامج وتطبيقات الهاتف الذكية وتطبيق DUMU بروابط مباشرة وسريعة وفحص SHA-256.">
+  <link rel="manifest" href="./static/manifest.json">
+  <meta name="theme-color" content="#8b5cf6">
+  <link rel="icon" type="image/svg+xml" href="./static/icons/logo.svg">
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="./static/css/style.css">
+  <!-- QR Code Library (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body>
+
+  <!-- Sticky Navbar -->
+  <header class="navbar">
+    <div class="nav-brand" onclick="appStore.switchView('store')">
+      <img src="./static/icons/logo.svg" alt="MOMO store Logo" class="nav-logo">
+      <div class="brand-text">
+        <h1>MOMO store</h1>
+        <p>متجر برامج الهاتف وتطبيقات الأندرويد</p>
+      </div>
+    </div>
+
+    <nav class="nav-tabs">
+      <button class="nav-tab-btn active" id="tab-store" onclick="appStore.switchView('store')">
+        <span>🏪</span> المتجر
+      </button>
+      <button class="nav-tab-btn" id="tab-checker" onclick="appStore.switchView('checker')">
+        <span>🔄</span> فاحص التحديثات
+      </button>
+      <button class="nav-tab-btn" id="tab-admin" onclick="appStore.switchView('admin')">
+        <span>⚙️</span> لوحة التحكم
+      </button>
+    </nav>
+
+    <div class="nav-actions">
+      <!-- Theme Switcher Button -->
+      <button class="theme-toggle-btn" id="theme-toggle-btn" onclick="appStore.toggleTheme()" title="تبديل المظهر بين الفاتح والداكن">
+        <span id="theme-icon">☀️</span>
+        <span id="theme-text">فاتح</span>
+      </button>
+
+      <a href="./catalog.json" target="_blank" class="btn-secondary" title="تحميل ملف الفهرس بصيغة JSON">
+        <span>📄</span> catalog.json
+      </a>
+      <button class="pwa-btn" id="pwa-install-btn" style="display: none;" onclick="appStore.installPWA()">
+        <span>📲</span> تثبيت التطبيق
+      </button>
+    </div>
+  </header>
+
+  <main class="app-container">
+
+    <!-- ================= VIEW 1: STOREFRONT ================= -->
+    <section id="view-store">
+      <!-- Hero Banner -->
+      <div class="hero-section">
+        <div class="hero-content">
+          <div class="hero-tag">
+            <span>✨</span> MOMO store - المنصة الرسمية لتحميل البرامج
+          </div>
+          <h2 class="hero-title">مرحباً بك في MOMO store</h2>
+          <p class="hero-desc">
+            المتجر المخصص لأحدث وأقوى برامج وتطبيقات الهاتف الذكية، مع توفير تطبيق <strong>DUMU</strong> برابط تحميل مباشر وسريع وفحص أمان رقمي <strong>SHA-256</strong> بدون إعلانات.
+          </p>
+          <div class="hero-badges">
+            <div class="hero-badge-item">
+              <span>📱</span>
+              <span>قسم مخصص لـ برامج الهاتف</span>
+            </div>
+            <div class="hero-badge-item">
+              <span>⚡</span>
+              <span>تطبيق DUMU الرسمي متاح للتحميل</span>
+            </div>
+            <div class="hero-badge-item">
+              <span>🛡️</span>
+              <span>بصمة أمان SHA-256 معتمدة</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search, Categories and Sort Bar -->
+      <div class="controls-bar">
+        <div class="search-sort-row">
+          <div class="search-box">
+            <input type="text" id="store-search-input" class="search-input" placeholder="ابحث في MOMO store بالاسم أو الوصف..." oninput="appStore.handleSearch(this.value)">
+            <span class="search-icon">🔍</span>
+          </div>
+
+          <div class="sort-select-wrapper">
+            <label for="store-sort" class="sort-label">ترتيب حسب:</label>
+            <select id="store-sort" class="sort-select" onchange="appStore.handleSort(this.value)">
+              <option value="popular">🔥 الأكثر شهرة وتحميلاً</option>
+              <option value="newest">✨ أحدث الإصدارات</option>
+              <option value="rating">⭐ الأعلى تقييماً</option>
+              <option value="name">🔤 أبجدياً (أ - ي)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Category Pills -->
+        <div class="categories-wrapper" id="categories-container">
+          <button class="category-pill active" data-category="all" onclick="appStore.handleCategory('all')">
+            <span>✨</span> جميع الأقسام
+          </button>
+          <button class="category-pill" data-category="برامج الهاتف" onclick="appStore.handleCategory('برامج الهاتف')">
+            <span>📱</span> برامج الهاتف
+          </button>
+          <button class="category-pill" data-category="ذكاء اصطناعي" onclick="appStore.handleCategory('ذكاء اصطناعي')">
+            <span>🤖</span> ذكاء اصطناعي
+          </button>
+          <button class="category-pill" data-category="أدوات عامة" onclick="appStore.handleCategory('أدوات عامة')">
+            <span>🛠️</span> أدوات عامة
+          </button>
+        </div>
+      </div>
+
+      <!-- Apps Grid -->
+      <div class="apps-section-header">
+        <div class="section-title">
+          <span>📦 التطبيقات المتاحة</span>
+          <span class="apps-count-badge" id="apps-count-badge">0 تطبيق</span>
+        </div>
+      </div>
+
+      <div class="apps-grid" id="apps-grid">
+        <!-- Rendered via JS -->
+      </div>
+    </section>
+
+    <!-- ================= VIEW 2: UPDATE CHECKER ================= -->
+    <section id="view-checker" style="display: none;">
+      <div class="update-checker-container">
+        <div class="checker-header">
+          <div class="hero-tag" style="margin-bottom: 8px;">
+            <span>🔄</span> نظام التحديثات الذكي
+          </div>
+          <h2>فاحص تحديثات MOMO store</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem;">
+            قارن رقم الإصدار المتثبت في جهازك (versionCode) بآخر إصدار متوفر على MOMO store للحصول على التحديث فوراً.
+          </p>
+        </div>
+
+        <form id="update-checker-form" onsubmit="appStore.runUpdateCheck(event)">
+          <div class="form-group">
+            <label class="form-label">اختر التطبيق أو اكتب اسم الحزمة (Package Name):</label>
+            <select id="checker-app-select" class="form-control" onchange="appStore.syncCheckerPackage(this.value)">
+              <option value="">-- اختر تطبيق من القائمة --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">اسم الحزمة (Package Name):</label>
+            <input type="text" id="checker-pkg-input" class="form-control" placeholder="مثال: com.momo.dumu" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">رقم الإصدار المثبت لديك حالياً (versionCode):</label>
+            <input type="number" id="checker-version-input" class="form-control" placeholder="مثال: 1 أو 2" value="1" min="1" required>
+            <span style="font-size: 0.8rem; color: var(--text-dim); display: block; margin-top: 4px;">
+              💡 ملاحظة: إذا كان الرقم في المتجر أعلى من رقمك الحالي، فسيظهر لك زر "تحديث الآن".
+            </span>
+          </div>
+
+          <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;">
+            <span>🔍</span> فحص التحديث الآن
+          </button>
+        </form>
+
+        <!-- Result Box -->
+        <div id="update-result" class="update-result-card"></div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 3: ADMIN DASHBOARD ================= -->
+    <section id="view-admin" style="display: none;">
+      <div class="admin-container">
+
+        <!-- Admin Login Card -->
+        <div id="admin-login-card" class="update-checker-container" style="max-width: 480px;">
+          <div class="checker-header">
+            <div class="hero-tag"><span>🔐</span> إدارة MOMO store</div>
+            <h2>تسجيل دخول المطور</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+              أدخل بيانات الحساب لإدارة برامج المتجر ونشر أي تطبيق في أي وقت.
+            </p>
+          </div>
+
+          <form id="admin-login-form" onsubmit="adminPanel.login(event)">
+            <div class="form-group">
+              <label class="form-label">اسم المستخدم:</label>
+              <input type="text" id="admin-user-input" class="form-control" value="admin" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">كلمة المرور:</label>
+              <input type="password" id="admin-pass-input" class="form-control" value="admin123" required>
+              <span style="font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; display: block;">
+                🔑 الحساب الافتراضي: <code>admin</code> / <code>admin123</code>
+              </span>
+            </div>
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 12px;">
+              <span>🚀</span> تسجيل الدخول
+            </button>
+          </form>
+        </div>
+
+        <!-- Admin Dashboard Content -->
+        <div id="admin-dashboard-view" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px;">
+            <div>
+              <h2 style="font-size: 1.8rem; font-weight: 800;">لوحة تحكم MOMO store</h2>
+              <p style="color: var(--text-muted); font-size: 0.9rem;">نشر التطبيقات الجديدة، رفع ملفات الـ APK، وتحديث الإصدارات</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button class="btn-primary" onclick="adminPanel.openCreateModal()">
+                <span>➕</span> نشر تطبيق جديد
+              </button>
+              <button class="btn-secondary" onclick="adminPanel.logout()">
+                <span>🚪</span> تسجيل خروج
+              </button>
+            </div>
+          </div>
+
+          <!-- Stats Overview -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(168, 85, 247, 0.15); color: var(--accent-purple);">
+                📱
+              </div>
+              <div class="stat-info">
+                <h3 id="stat-total-apps">0</h3>
+                <p>إجمالي التطبيقات</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald);">
+                📥
+              </div>
+              <div class="stat-info">
+                <h3 id="stat-total-downloads">0</h3>
+                <p>إجمالي التحميلات</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-amber);">
+                ⭐
+              </div>
+              <div class="stat-info">
+                <h3 id="stat-avg-rating">0.0</h3>
+                <p>متوسط التقييمات</p>
+              </div>
+            </div>
+
+            <div class="stat-card">
+              <div class="stat-icon" style="background: rgba(236, 72, 153, 0.15); color: var(--accent-pink);">
+                🏷️
+              </div>
+              <div class="stat-info">
+                <h3 id="stat-categories-count">0</h3>
+                <p>الأقسام النشطة</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Apps Table -->
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>التطبيق</th>
+                  <th>اسم الحزمة</th>
+                  <th>القسم</th>
+                  <th>الإصدار (Code)</th>
+                  <th>الحجم</th>
+                  <th>التحميلات</th>
+                  <th>التقييم</th>
+                  <th>إجراءات</th>
+                </tr>
+              </thead>
+              <tbody id="admin-apps-tbody">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= APP DETAILS MODAL ================= -->
+  <div class="modal-overlay" id="app-details-modal" onclick="appStore.closeModalOnOutsideClick(event)">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.2rem;">📱</span>
+          <span style="font-weight: 700; color: var(--text-main);">تفاصيل التطبيق والمواصفات | MOMO store</span>
+        </div>
+        <button class="modal-close-btn" onclick="appStore.closeDetailsModal()">✕</button>
+      </div>
+
+      <div class="modal-body" id="app-details-body">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= QR CODE MODAL ================= -->
+  <div class="modal-overlay" id="qr-modal" onclick="if(event.target === this) this.classList.remove('active')">
+    <div class="modal-container" style="max-width: 440px;">
+      <div class="modal-header">
+        <span style="font-weight: 700; color: var(--text-main);">📲 مسح رمز QR للتحميل على الهاتف</span>
+        <button class="modal-close-btn" onclick="document.getElementById('qr-modal').classList.remove('active')">✕</button>
+      </div>
+      <div class="qr-modal-body">
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 12px;">
+          وجّه كاميرا هاتفك الذكي نحو الرمز لبدء تحميل ملف الـ APK فوراً على جهازك:
+        </p>
+        <div class="qr-frame">
+          <canvas id="qr-canvas"></canvas>
+        </div>
+        <p id="qr-app-name" style="font-weight: 800; color: var(--text-main); margin-top: 8px;"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ADD / EDIT APP MODAL ================= -->
+  <div class="modal-overlay" id="admin-app-modal" onclick="if(event.target === this) adminPanel.closeAppModal()">
+    <div class="modal-container" style="max-width: 720px;">
+      <div class="modal-header">
+        <h3 id="admin-modal-title" style="color: var(--text-main); font-weight: 800;">نشر تطبيق جديد في MOMO store</h3>
+        <button class="modal-close-btn" onclick="adminPanel.closeAppModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <form id="admin-app-form" onsubmit="adminPanel.saveApp(event)">
+          <input type="hidden" id="form-is-edit" value="false">
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label class="form-label">معرف التطبيق الفريد (Slug / ID):</label>
+              <input type="text" id="form-id" class="form-control" placeholder="مثال: dumu-phone-app" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">اسم الحزمة (Package Name):</label>
+              <input type="text" id="form-package" class="form-control" placeholder="مثال: com.momo.dumu" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">اسم التطبيق:</label>
+            <input type="text" id="form-name" class="form-control" placeholder="مثال: DUMU" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">وصف مختصر (Short Description):</label>
+            <input type="text" id="form-short-desc" class="form-control" placeholder="سطر واحد يشرح الفكرة الأساسية" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">الوصف التفصيلي (Full Description):</label>
+            <textarea id="form-desc" class="form-control" rows="4" placeholder="شرح مميزات التطبيق وطريقة استخدامه..." required></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px;">
+            <div class="form-group">
+              <label class="form-label">القسم (Category):</label>
+              <select id="form-category" class="form-control">
+                <option value="برامج الهاتف">برامج الهاتف</option>
+                <option value="ذكاء اصطناعي">ذكاء اصطناعي</option>
+                <option value="أدوات عامة">أدوات عامة</option>
+                <option value="ألعاب">ألعاب</option>
+                <option value="إنتاجية">إنتاجية</option>
+                <option value="أخرى">أخرى</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">رقم الإصدار (Version Name):</label>
+              <input type="text" id="form-version-name" class="form-control" placeholder="مثال: 1.0.0" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">كود الإصدار (Version Code):</label>
+              <input type="number" id="form-version-code" class="form-control" placeholder="مثال: 1" value="1" required>
+            </div>
+          </div>
+
+          <!-- APK Storage & File Mode -->
+          <div style="background: rgba(125,125,125,0.06); border: 1px solid var(--border-color); border-radius: 16px; padding: 18px; margin: 18px 0;">
+            <div style="font-weight: 700; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <span>💾</span> طريقة تخزين ورفع الـ APK:
+            </div>
+            
+            <div style="display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap;">
+              <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <input type="radio" name="apk_upload_mode" value="github" checked onchange="adminPanel.toggleUploadMode('github')">
+                <span>رابط خارجي أو GitHub Releases (موصى به)</span>
+              </label>
+              <label style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <input type="radio" name="apk_upload_mode" value="file" onchange="adminPanel.toggleUploadMode('file')">
+                <span>رفع ملف APK من جهازك مباشرة</span>
+              </label>
+            </div>
+
+            <div id="mode-github-box">
+              <div class="form-group">
+                <label class="form-label">رابط التحميل المباشر للـ APK (Direct Download URL):</label>
+                <input type="url" id="form-download-url" class="form-control" placeholder="https://github.com/user/repo/releases/download/v1.0/app.apk">
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+                <div class="form-group">
+                  <label class="form-label">بصمة التشفير (SHA-256 Checksum):</label>
+                  <input type="text" id="form-sha256" class="form-control" placeholder="64 حرفاً hex">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">حجم الملف (مكتوب):</label>
+                  <input type="text" id="form-size-formatted" class="form-control" placeholder="مثال: 12.5 MB">
+                </div>
+              </div>
+            </div>
+
+            <div id="mode-file-box" style="display: none;">
+              <div class="form-group">
+                <label class="form-label">اختر ملف APK من الكمبيوتر:</label>
+                <input type="file" id="form-apk-file" class="form-control" accept=".apk" onchange="adminPanel.handleApkFileSelection(this)">
+                <span id="apk-upload-status" style="font-size: 0.85rem; color: var(--accent-purple); display: block; margin-top: 6px;"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">ما الجديد في هذا التحديث (Changelog):</label>
+            <textarea id="form-changelog" class="form-control" rows="2" placeholder="• ميزة 1...&#10;• إصلاح مشكلة..."></textarea>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label class="form-label">رابط أيقونة التطبيق (Icon URL):</label>
+              <input type="text" id="form-icon-url" class="form-control" placeholder="./static/icons/default-app.svg" value="./static/icons/default-app.svg">
+            </div>
+            <div class="form-group">
+              <label class="form-label">اسم المطور / الفريق:</label>
+              <input type="text" id="form-developer" class="form-control" placeholder="MOMO Team" value="MOMO Team">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">روابط لقطات الشاشة (Screenshots - كل رابط في سطر):</label>
+            <textarea id="form-screenshots" class="form-control" rows="2" placeholder="https://example.com/screen1.jpg"></textarea>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <input type="checkbox" id="form-featured" style="width: 18px; height: 18px;" checked>
+            <label for="form-featured" style="font-weight: 700; cursor: pointer;">تطبيق مميز (Featured في واجهة MOMO store)</label>
+          </div>
+
+          <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; font-size: 1rem;" id="form-submit-btn">
+            <span>💾</span> نشر التطبيق في المتجر
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- JavaScript Files -->
+  <script src="./static/js/app.js"></script>
+  <script src="./static/js/admin.js"></script>
+</body>
+</html>
