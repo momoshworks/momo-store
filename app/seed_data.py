@@ -60,8 +60,10 @@ def seed_database_if_empty():
         "sha256": dumu_hash,
         "changelog": "• الإطلاق الرسمي لتطبيق DUMU على متجر MOMO Store\n• واجهة عصرية وسلسة تدعم الوضعين الفاتح والداكن\n• إدارة ذكية للبطارية والذاكرة بدون استهلاك للموارد\n• حماية الخصوصية وتأمين الملفات الحساسة",
         "screenshots": [
-            "https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800&auto=format&fit=crop&q=80",
-            "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&auto=format&fit=crop&q=80"
+            "./static/images/screenshots/dumu-screen-1.png",
+            "./static/images/screenshots/dumu-screen-2.png",
+            "./static/images/screenshots/dumu-screen-3.png",
+            "./static/images/screenshots/dumu-screen-4.png"
         ],
         "developer": "MOMO Team",
         "github_repo": "https://github.com/momoshworks/momo-store",
