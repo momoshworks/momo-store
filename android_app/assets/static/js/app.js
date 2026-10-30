@@ -91,6 +91,19 @@ const appStore = {
       fetchedApps = this.getDefaultFallbackApps();
     }
 
+    // Filter to strictly keep only Apps (removing any mock hardware products)
+    fetchedApps = fetchedApps.filter((a) => a.item_type === 'app' || a.category === 'برامج الهاتف');
+
+    // Synchronize downloads_count starting from zero or local tracking
+    fetchedApps.forEach((app) => {
+      const savedDl = localStorage.getItem('momo_dl_' + app.id);
+      if (savedDl !== null) {
+        app.downloads_count = parseInt(savedDl, 10);
+      } else {
+        app.downloads_count = app.downloads_count || 0;
+      }
+    });
+
     this.allCatalogApps = fetchedApps;
     this.apps = fetchedApps;
   },
@@ -98,7 +111,7 @@ const appStore = {
   renderSkeletons() {
     const grid = document.getElementById('main-apps-grid');
     if (!grid) return;
-    grid.innerHTML = Array(6).fill(0).map(() => `
+    grid.innerHTML = Array(4).fill(0).map(() => `
       <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 18px; padding: 12px; height: 180px; display: flex; flex-direction: column; gap: 8px;">
         <div style="width: 100%; height: 95px; background: var(--shimmer-bg); border-radius: var(--squircle-radius); animation: pulse 1.5s infinite;"></div>
         <div style="width: 70%; height: 14px; background: var(--shimmer-bg); border-radius: 6px;"></div>
@@ -110,23 +123,16 @@ const appStore = {
   // --- Render Google Play Horizontal Clusters ---
   renderClusters() {
     const recContainer = document.getElementById('cluster-recommended');
-    const hwContainer = document.getElementById('cluster-hardware');
-
     const phoneApps = this.allCatalogApps.filter((a) => a.category === 'برامج الهاتف' || a.item_type === 'app');
-    const hardwareItems = this.allCatalogApps.filter((a) => a.category !== 'برامج الهاتف');
 
     if (recContainer) {
       recContainer.innerHTML = phoneApps.map((item) => this.renderClusterCard(item)).join('');
     }
-
-    if (hwContainer) {
-      hwContainer.innerHTML = hardwareItems.map((item) => this.renderClusterCard(item)).join('');
-    }
   },
 
   renderClusterCard(item) {
-    const isApp = item.item_type === 'app';
-    const subText = isApp ? (item.file_size_formatted || '42 MB') : `${item.price} ج.م`;
+    const count = item.downloads_count || 0;
+    const subText = `${count} تنزيل`;
 
     return `
       <div class="gp-app-card" onclick="appStore.openDetailsModal('${item.id}')">
@@ -136,9 +142,9 @@ const appStore = {
         <div class="gp-app-name" title="${item.name}">${item.name}</div>
         <div class="gp-app-subinfo">
           <span class="gp-app-rating-star">★</span>
-          <span>${item.rating ? item.rating.toFixed(1) : '4.8'}</span>
+          <span>${item.rating ? item.rating.toFixed(1) : '5.0'}</span>
           <span>•</span>
-          <span>${subText}</span>
+          <span style="color: var(--gp-green); font-weight: 700;">${subText}</span>
         </div>
       </div>
     `;
@@ -200,11 +206,11 @@ const appStore = {
           <div style="display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: 6px;">
             <div style="display: flex; align-items: center; gap: 4px; font-size: 0.82rem; font-weight: 700;">
               <span style="color: #f59e0b;">★</span>
-              <span>${item.rating ? item.rating.toFixed(1) : '4.8'}</span>
+              <span>${item.rating ? item.rating.toFixed(1) : '5.0'}</span>
             </div>
             
-            <div style="font-weight: 800; font-size: 0.92rem; color: ${isApp ? 'var(--gp-green)' : 'var(--text-main)'};">
-              ${isApp ? 'مجاني' : item.price + ' ج.م'}
+            <div style="font-weight: 800; font-size: 0.82rem; color: var(--gp-green); background: var(--gp-green-surface); padding: 3px 10px; border-radius: var(--pill-radius);">
+              ${item.downloads_count || 0} تنزيل
             </div>
           </div>
         </div>
@@ -224,13 +230,11 @@ const appStore = {
     if (tabName === 'for-you') {
       this.currentCategory = 'all';
       this.switchView('home');
-      document.getElementById('grid-section-title').textContent = 'أهم التطبيقات والمنتجات';
+      document.getElementById('grid-section-title').textContent = 'جميع التطبيقات المتاحة';
     } else if (tabName === 'top-charts') {
       this.currentCategory = 'all';
       this.switchView('home');
       document.getElementById('grid-section-title').textContent = 'الأعلى تحميلاً وتقييماً 🔥';
-    } else if (tabName === 'categories') {
-      this.switchView('categories');
     } else if (tabName === 'editors-choice') {
       this.currentCategory = 'all';
       this.switchView('home');
@@ -250,14 +254,14 @@ const appStore = {
 
     if (type === 'apps') {
       this.handleTabSwitch('for-you');
-    } else if (type === 'games') {
-      this.handleTabSwitch('ألعاب');
-    } else if (type === 'hardware') {
-      this.handleTabSwitch('إلكترونيات وأجهزة');
-    } else if (type === 'cart') {
-      this.switchView('cart');
+    } else if (type === 'featured') {
+      this.handleTabSwitch('editors-choice');
+    } else if (type === 'wishlist') {
+      this.switchView('wishlist');
     } else if (type === 'updates') {
       this.openAccountDialog();
+    } else if (type === 'merchant') {
+      this.switchView('merchant');
     }
   },
 
@@ -359,8 +363,8 @@ const appStore = {
         </div>
 
         <div class="gp-stat-item">
-          <div class="gp-stat-val">
-            <span>${item.downloads_count ? `+${(item.downloads_count / 1000).toFixed(0)}K` : '+500K'}</span>
+          <div class="gp-stat-val" id="gp-details-downloads-val">
+            <span>${item.downloads_count || 0}</span>
           </div>
           <span class="gp-stat-label">تنزيل</span>
         </div>
@@ -572,9 +576,34 @@ const appStore = {
         progress = 100;
         clearInterval(this.installProgressTimer);
 
+        // 1. Increment Real Downloads Counter Starting From Zero
+        item.downloads_count = (item.downloads_count || 0) + 1;
+        localStorage.setItem('momo_dl_' + item.id, item.downloads_count);
+
+        // Update in active state lists
+        const inAll = appStore.allCatalogApps.find((a) => a.id === item.id);
+        if (inAll) inAll.downloads_count = item.downloads_count;
+        const inList = appStore.apps.find((a) => a.id === item.id);
+        if (inList) inList.downloads_count = item.downloads_count;
+
+        // Update live in App Details Stats Strip
+        const dlValEl = document.getElementById('gp-details-downloads-val');
+        if (dlValEl) {
+          dlValEl.innerHTML = `<span>${item.downloads_count}</span>`;
+        }
+
+        // Send to backend SQLite server if available
+        try {
+          fetch(`./api/apps/${item.id}/download`, { method: 'POST' });
+        } catch (e) {}
+
+        // Re-render cluster cards and main grid so the counter increments on the home screen
+        appStore.renderClusters();
+        appStore.renderProducts(appStore.apps);
+
         // Finish state
         if (circleFill) circleFill.style.strokeDashoffset = 0;
-        if (mbText) mbText.textContent = `تم التنزيل والتحقق من SHA-256 بنجاح (${totalMb} MB)`;
+        if (mbText) mbText.textContent = `تم التنزيل والتحقق من SHA-256 بنجاح (${totalMb} MB) • التنزيل رقم ${item.downloads_count}`;
         if (iconWrapper) iconWrapper.classList.remove('installing');
 
         if (openBtn) {
@@ -596,7 +625,7 @@ const appStore = {
           document.body.removeChild(a);
         }
 
-        appStore.showToast(`تم تثبيت "${item.name}" بنجاح! 🎉`, 'success');
+        appStore.showToast(`تم تسجيل التنزيل رقم ${item.downloads_count} لتطبيق "${item.name}" بنجاح! 🚀`, 'success');
       } else {
         const offset = circumference - (progress / 100) * circumference;
         if (circleFill) circleFill.style.strokeDashoffset = offset;
@@ -1025,8 +1054,8 @@ const appStore = {
         item_type: 'app',
         price: 0,
         rating: 5.0,
-        rating_count: 182,
-        downloads_count: 52000,
+        rating_count: 86,
+        downloads_count: 0,
         icon_url: './static/icons/dumu-icon.svg',
         short_description: 'تطبيق DUMU الذكي لإدارة المهام والمحاضرات والجداول الأكاديمية.',
         description: 'تطبيق DUMU هو تطبيقك الأساسي على الأندرويد. يوفر أدوات متطورة لإدارة الجداول، حاسبة الـ GPA، وكتم الصوت التلقائي Auto-DND.',
@@ -1047,8 +1076,8 @@ const appStore = {
         item_type: 'app',
         price: 0,
         rating: 5.0,
-        rating_count: 240,
-        downloads_count: 85000,
+        rating_count: 120,
+        downloads_count: 0,
         icon_url: './static/icons/logo.svg',
         short_description: 'التطبيق الرسمي لمتجر MOMO store بنظام Material Design 3.',
         description: 'التطبيق الرسمي لمتجر MOMO store للهواتف الذكية. تصفح وحمل برامج الأندرويد والعتاد الذكي بسرعة وسلاسة تامة.',

@@ -38,8 +38,6 @@
       <button class="m3-tab-item active" data-tab="for-you" onclick="appStore.handleTabSwitch('for-you', this)">لك</button>
       <button class="m3-tab-item" data-tab="top-charts" onclick="appStore.handleTabSwitch('top-charts', this)">أهم التطبيقات</button>
       <button class="m3-tab-item" data-tab="phone-apps" onclick="appStore.handleTabSwitch('برامج الهاتف', this)">برامج الهاتف</button>
-      <button class="m3-tab-item" data-tab="hardware" onclick="appStore.handleTabSwitch('إلكترونيات وأجهزة', this)">أجهزة وعتاد</button>
-      <button class="m3-tab-item" data-tab="categories" onclick="appStore.handleTabSwitch('categories', this)">الفئات</button>
       <button class="m3-tab-item" data-tab="editors-choice" onclick="appStore.handleTabSwitch('editors-choice', this)">اختيارات المحررين</button>
     </nav>
   </header>
@@ -58,7 +56,7 @@
             <div class="gp-hero-content">
               <span class="gp-hero-badge">🌟 اختيار المحررين</span>
               <h2 class="gp-hero-title">تطبيق DUMU الذكي لطلاب الجامعات والهواتف</h2>
-              <p class="gp-hero-desc">إدارة المحاضرات والجداول الأكاديمية، كتم الصوت التلقائي Auto-DND، حاسبة الـ GPA، وتصفح المحاضرات بأمان تام.</p>
+              <p class="gp-hero-desc">إدارة المحاضرات والجداول الأكاديمية، كتم الصوت التلقائي Auto-DND، حاسبة الـ GPA، وتصفح المحاضرات بأمان تام وبدون إعلانات.</p>
               <button class="gp-hero-btn" onclick="appStore.openDetailsModal('dumu-phone-app')">
                 <span>تثبيت</span>
               </button>
@@ -67,45 +65,30 @@
         </div>
       </div>
 
-      <!-- 2. Horizontal Cluster: مقترحة لك (Recommended for you) -->
+      <!-- 2. Horizontal Cluster: برامج الهاتف الأساسية -->
       <div class="gp-cluster-section">
         <div class="gp-cluster-header">
           <div class="gp-cluster-title-wrap">
-            <h3 class="gp-cluster-title">مقترحة لك</h3>
-            <span class="gp-cluster-subtitle">• تطبيقات موصى بها</span>
+            <h3 class="gp-cluster-title">برامج الهاتف الأساسية</h3>
+            <span class="gp-cluster-subtitle">• تطبيقات موصى بها لك</span>
           </div>
-          <button class="gp-cluster-arrow-btn" onclick="appStore.handleTabSwitch('برامج الهاتف')">←</button>
         </div>
         <div class="gp-horizontal-cluster" id="cluster-recommended">
           <!-- Rendered dynamically -->
         </div>
       </div>
 
-      <!-- 3. Horizontal Cluster: أجهزة وإلكترونيات مميزة (Hardware & Devices) -->
+      <!-- 3. All Apps Section -->
       <div class="gp-cluster-section">
         <div class="gp-cluster-header">
           <div class="gp-cluster-title-wrap">
-            <h3 class="gp-cluster-title">أحدث الأجهزة والإلكترونيات</h3>
-            <span class="gp-cluster-subtitle">• ملحقات فائقة الأداء</span>
-          </div>
-          <button class="gp-cluster-arrow-btn" onclick="appStore.handleTabSwitch('إلكترونيات وأجهزة')">←</button>
-        </div>
-        <div class="gp-horizontal-cluster" id="cluster-hardware">
-          <!-- Rendered dynamically -->
-        </div>
-      </div>
-
-      <!-- 4. Top Charts & All Apps Grid Section -->
-      <div class="gp-cluster-section">
-        <div class="gp-cluster-header">
-          <div class="gp-cluster-title-wrap">
-            <h3 class="gp-cluster-title" id="grid-section-title">أهم التطبيقات والمنتجات</h3>
+            <h3 class="gp-cluster-title" id="grid-section-title">جميع التطبيقات المتاحة</h3>
             <span class="gp-cluster-subtitle" id="grid-section-count"></span>
           </div>
         </div>
         <!-- Grid Container -->
         <div class="gp-apps-grid" id="main-apps-grid">
-          <!-- Dynamic Shimmer Skeletons or Product/App Cards -->
+          <!-- Dynamic App Cards -->
         </div>
       </div>
 
@@ -410,37 +393,37 @@
 
   <!-- ================= MATERIAL 3 BOTTOM NAVIGATION BAR ================= -->
   <nav class="m3-bottom-nav">
-    <!-- 1. Games -->
-    <button class="m3-nav-item" data-view="home" onclick="appStore.switchBottomNav('games', this)">
-      <div class="m3-active-indicator-pill">🎮</div>
-      <span class="m3-nav-label">الألعاب</span>
-    </button>
-
-    <!-- 2. Apps (Default Active) -->
+    <!-- 1. Apps (Default Active) -->
     <button class="m3-nav-item active" data-view="home" onclick="appStore.switchBottomNav('apps', this)">
       <div class="m3-active-indicator-pill">📱</div>
       <span class="m3-nav-label">التطبيقات</span>
     </button>
 
-    <!-- 3. Hardware / Deals -->
-    <button class="m3-nav-item" data-view="categories" onclick="appStore.switchBottomNav('hardware', this)">
-      <div class="m3-active-indicator-pill">🛍️</div>
-      <span class="m3-nav-label">العتاد والمتجر</span>
+    <!-- 2. Featured -->
+    <button class="m3-nav-item" data-view="home" onclick="appStore.switchBottomNav('featured', this)">
+      <div class="m3-active-indicator-pill">🌟</div>
+      <span class="m3-nav-label">المميزة</span>
     </button>
 
-    <!-- 4. Cart -->
-    <button class="m3-nav-item" data-view="cart" onclick="appStore.switchBottomNav('cart', this)">
+    <!-- 3. Wishlist / Saved -->
+    <button class="m3-nav-item" data-view="wishlist" onclick="appStore.switchBottomNav('wishlist', this)">
       <div class="m3-active-indicator-pill">
-        🛒
-        <span class="m3-nav-badge cart-badge" style="display: none;">0</span>
+        ❤️
+        <span class="m3-nav-badge wish-badge" style="display: none;">0</span>
       </div>
-      <span class="m3-nav-label">السلة</span>
+      <span class="m3-nav-label">المفضلة</span>
     </button>
 
-    <!-- 5. Updates & Manage -->
-    <button class="m3-nav-item" data-view="orders" onclick="appStore.switchBottomNav('updates', this)">
-      <div class="m3-active-indicator-pill">⚡</div>
-      <span class="m3-nav-label">إدارتي</span>
+    <!-- 4. Updates & Play Protect -->
+    <button class="m3-nav-item" data-view="updates" onclick="appStore.switchBottomNav('updates', this)">
+      <div class="m3-active-indicator-pill">🔄</div>
+      <span class="m3-nav-label">التحديثات</span>
+    </button>
+
+    <!-- 5. Merchant Dashboard -->
+    <button class="m3-nav-item" data-view="merchant" onclick="appStore.switchBottomNav('merchant', this)">
+      <div class="m3-active-indicator-pill">⚙️</div>
+      <span class="m3-nav-label">التاجر</span>
     </button>
   </nav>
 
