@@ -39,7 +39,7 @@ def seed_database_if_empty():
     if existing:
         return
 
-    # Create DUMU APK file
+    # App 1: DUMU
     dumu_apk_url, dumu_size, dumu_hash = create_sample_mock_apk("dumu-v1.0.apk", "DUMU")
 
     dumu_app = {
@@ -72,5 +72,35 @@ def seed_database_if_empty():
         "rating": 5.0,
         "rating_count": 86
     }
-
     create_app(dumu_app)
+
+    # App 2: MOMO store Official App
+    momo_app = {
+        "id": "momo-store-app",
+        "package_name": "com.momo.store",
+        "name": "MOMO store",
+        "short_description": "التطبيق الرسمي لمتجر MOMO store لتحميل وتثبيت وتحديث برامج وتطبيقات الهاتف الذكية بنقرة واحدة وبأمان تام.",
+        "description": "تطبيق متجر MOMO store الرسمي للهواتف الذكية بنظام أندرويد. يتيح لك استعراض وتحميل أفضل برامج الهاتف مثل تطبيق DUMU وإدارة التحميلات عبر مدير التنزيلات المدمج، مع فحص الأمان الرقمي SHA-256 وفاحص التحديثات الذكي، والتبديل السلس بين الثيمين الفاتح والداكن.",
+        "category": "برامج الهاتف",
+        "icon_url": "./static/icons/logo.svg",
+        "version_name": "1.0.0",
+        "version_code": 1,
+        "min_android_version": "Android 5.0 (Lollipop) أو أحدث",
+        "file_size_bytes": 1665595,
+        "file_size_formatted": "1.59 MB",
+        "download_url": "https://github.com/momoshworks/momo-store/releases/download/v1.0.0/momo-store.apk",
+        "storage_type": "github_release",
+        "sha256": "ec3eff138566abfb9c8b1df6741ac5b13efd9b6c89768f52936935c27680d270",
+        "changelog": "• الإطلاق الرسمي لتطبيق MOMO store على الأندرويد\n• مدير تنزيلات مدمج للتطبيقات والـ APKs\n• دعم كامل للوضعين الفاتح والداكن\n• فاحص ذكي للتحديثات التلقائية والتحقق الأمني",
+        "screenshots": [
+            "./static/images/screenshots/dumu-screen-1.png",
+            "./static/images/screenshots/dumu-screen-2.png"
+        ],
+        "developer": "MOMO Team",
+        "github_repo": "https://github.com/momoshworks/momo-store",
+        "featured": True,
+        "downloads_count": 3420,
+        "rating": 5.0,
+        "rating_count": 148
+    }
+    create_app(momo_app)
