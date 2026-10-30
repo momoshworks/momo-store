@@ -10,3 +10,6 @@ ENV/
 data/*.db-journal
 .DS_Store
 Thumbs.db
+android_app/bin/
+android_app/gen/
+*.idsig

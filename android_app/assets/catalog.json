@@ -1,0 +1,39 @@
+{
+  "catalog_version": "1.0.0",
+  "generated_at": "2026-10-30T12:57:09.849524Z",
+  "apps_count": 1,
+  "apps": [
+    {
+      "id": "dumu-phone-app",
+      "package_name": "com.momo.dumu",
+      "name": "DUMU",
+      "short_description": "تطبيق DUMU الذكي والاحترافي لإدارة مهام الهاتف، تعزيز الأداء، وحماية الخصوصية بسرعة فائقة.",
+      "description": "تطبيق DUMU هو التطبيق الأساسي لهاتفك الذكي في MOMO Store. يمنحك تجربة استخدام استثنائية من خلال أدوات متطورة لإدارة المكالمات، تنظيف الملفات المؤقتة، تسريع المعالج والذاكرة العشوائية RAM، مع الحفاظ الكامل على خصوصيتك بدون أي إعلانات مزعجة.",
+      "category": "برامج الهاتف",
+      "icon_url": "/static/icons/dumu-icon.svg",
+      "version_name": "1.0.0",
+      "version_code": 1,
+      "min_android_version": "Android 8.0 (Oreo) أو أحدث",
+      "file_size_bytes": 900,
+      "file_size_formatted": "0.9 KB",
+      "download_url": "/uploads/apks/dumu-v1.0.apk",
+      "storage_type": "local_server",
+      "sha256": "0d3852dc6fbfae4517e60e66fbd67983cdaf8bc784a75578fd96945250d7349b",
+      "changelog": "• الإطلاق الرسمي لتطبيق DUMU على متجر MOMO Store\n• واجهة عصرية وسلسة تدعم الوضعين الفاتح والداكن\n• إدارة ذكية للبطارية والذاكرة بدون استهلاك للموارد\n• حماية الخصوصية وتأمين الملفات الحساسة",
+      "screenshots": [
+        "./static/images/screenshots/dumu-screen-1.png",
+        "./static/images/screenshots/dumu-screen-2.png",
+        "./static/images/screenshots/dumu-screen-3.png",
+        "./static/images/screenshots/dumu-screen-4.png"
+      ],
+      "developer": "MOMO Team",
+      "github_repo": "https://github.com/momoshworks/momo-store",
+      "featured": true,
+      "downloads_count": 1250,
+      "rating": 5.0,
+      "rating_count": 86,
+      "created_at": "2026-10-30T12:42:53.125284Z",
+      "updated_at": "2026-10-30T12:57:09.843522Z"
+    }
+  ]
+}
